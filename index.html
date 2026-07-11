@@ -31,7 +31,7 @@ body{ background:var(--apple-gray-bg); color:var(--apple-ink); -webkit-font-smoo
 .premium-tw{ background:var(--apple-red); color:#fff; } .premium-dw{ background:#FFE1E8; color:#D70015; }
 .premium-tl{ background:var(--apple-blue); color:#fff; } .premium-dl{ background:#D6ECFF; color:var(--apple-blue-dark); }
 .premium-center{ background:linear-gradient(135deg,var(--apple-orange),#FFB84D); color:#fff; }
-.tile{ width:var(--tile-size); height:var(--tile-size); background:#FFFFFF; border:1px solid var(--apple-gray-line); box-shadow:0 1px 3px rgba(0,0,0,.08); border-radius:8px; display:flex; align-items:center; justify-content:center; font-weight:600; color:var(--apple-ink); font-size:20px; position:relative; cursor:grab; user-select:none; touch-action:none; transition:transform .1s; }
+.tile{ width:var(--tile-size); height:var(--tile-size); background:#F5EFE0; border:1px solid var(--apple-gray-line); box-shadow:0 1px 3px rgba(0,0,0,.08); border-radius:8px; display:flex; align-items:center; justify-content:center; font-weight:600; color:var(--apple-ink); font-size:20px; position:relative; cursor:grab; user-select:none; touch-action:none; transition:transform .1s; }
 .tile.rack-size{ width:var(--rack-tile-size); height:var(--rack-tile-size); font-size:28px; }
 .tile .pt{ position:absolute; bottom:2px; right:4px; font-size:8px; font-weight:600; color:var(--apple-ink-secondary); }
 .tile.blank{ background:#F5E6FF; border-color:#AF52DE; color:#8E28B8; }
@@ -39,8 +39,6 @@ body{ background:var(--apple-gray-bg); color:var(--apple-ink); -webkit-font-smoo
 .tile.temp{ box-shadow:0 0 0 3px var(--apple-orange), 0 4px 10px rgba(0,0,0,.15); z-index:10; }
 .tile.last-word{ box-shadow:0 0 0 3px var(--apple-green), 0 4px 10px rgba(52,199,89,.3); z-index:5; }
 .rack{ background:#FFFFFF; border:1px solid var(--apple-gray-line); padding:10px; border-radius:16px; box-shadow:0 1px 2px rgba(0,0,0,.05); }
-.game-container{ max-width:1000px; margin:0 auto; }
-
 /* Game screen: board fixed on the left, everything else on the right, no page scroll */
 #screen-game{ height:100vh; height:100dvh; overflow:hidden; }
 .game-layout{ height:100%; display:flex; flex-direction:row; align-items:stretch; }
@@ -221,7 +219,7 @@ body{ background:var(--apple-gray-bg); color:var(--apple-ink); -webkit-font-smoo
     <i class="fa-solid fa-trophy text-5xl text-[#FF9F0A] mb-3"></i>
     <h3 class="font-semibold text-2xl mb-2">Game Over</h3>
     <div id="winner-text" class="text-lg mb-4"></div>
-    <button onclick="document.getElementById('winner-modal').classList.add('hidden')" class="w-full py-3 bg-[#1D1D1F] text-white rounded-2xl font-semibold">Close</button>
+    <button onclick="closeWinnerModal()" class="w-full py-3 bg-[#1D1D1F] text-white rounded-2xl font-semibold">Back to Lobby</button>
   </div>
 </div>
 
@@ -472,9 +470,24 @@ function stateForRecipient(recipientClientId){
 
 let lastSeenLogEntry = null;
 let wasMyTurnLast = null;
+let previousStarted = false;
 function applyIncomingState(s){
+  const justEnded = previousStarted === true && s.started === false;
+  previousStarted = s.started;
   myRenderState = s;
-  if (!s.started){ renderLobbyFromState(); return; }
+  if (!s.started){
+    if (justEnded){
+      // Keep everyone on the game screen showing the final board/scores + winner modal,
+      // rather than snapping straight back to the lobby.
+      placementsThisTurn = [];
+      handleSoundEvents(s);
+      showScreen('game');
+      renderGame();
+    } else {
+      renderLobbyFromState();
+    }
+    return;
+  }
   placementsThisTurn = placementsThisTurn.filter(pl => myRenderState.board[pl.row][pl.col] === null); // drop stale tentative if board moved on
   handleSoundEvents(s);
   showScreen('game');
@@ -886,6 +899,12 @@ function renderLobbyFromState(){
   }
 }
 function hostStartGame(){ Sound.click(); submitAction('startGame'); }
+function closeWinnerModal(){
+  document.getElementById('winner-modal').classList.add('hidden');
+  showScreen('lobby');
+  renderLobbyFromState();
+}
+
 function hostEndGame(){
   if (!isHost) return;
   if (!confirm('End the game now? Scores will be finalised as they stand — useful if nobody can play a tile.')) return;
@@ -957,16 +976,16 @@ function renderGame(){
   const s = myRenderState;
   document.getElementById('bag-count').textContent = s.bagCount;
   updateBagBadgeColor(s.bagCount, s.initialBagSize);
-  document.getElementById('btn-end-game').classList.toggle('hidden', !isHost);
+  document.getElementById('btn-end-game').classList.toggle('hidden', !isHost || !s.started);
   const me = s.players.find(p=>p.clientId===myClientId);
   const current = s.players[s.currentPlayerIndex];
   const myTurn = current && current.clientId === myClientId;
 
-  document.getElementById('turn-indicator').textContent = current ? (myTurn ? 'Your turn' : current.name + "'s turn") : '';
-  document.getElementById('my-turn-banner').classList.toggle('hidden', !myTurn);
-  document.getElementById('waiting-banner').classList.toggle('hidden', myTurn);
+  document.getElementById('turn-indicator').textContent = !s.started ? 'Game over' : (current ? (myTurn ? 'Your turn' : current.name + "'s turn") : '');
+  document.getElementById('my-turn-banner').classList.toggle('hidden', !myTurn || !s.started);
+  document.getElementById('waiting-banner').classList.toggle('hidden', myTurn || !s.started);
   // Rack stays fully interactive even out of turn, so tiles can still be reordered while waiting.
-  ['btn-play','btn-recall','btn-exchange','btn-pass'].forEach(id => { document.getElementById(id).disabled = !myTurn; });
+  ['btn-play','btn-recall','btn-exchange','btn-pass'].forEach(id => { document.getElementById(id).disabled = !myTurn || !s.started; });
 
   renderMatchHistory(s);
 
