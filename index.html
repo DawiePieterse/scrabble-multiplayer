@@ -22,6 +22,7 @@
 }
 @media (max-width: 900px){ :root{ --tile-size: 40px; --rack-tile-size: 50px; } }
 *{ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text',system-ui,sans-serif; }
+h1,h3,p{ font-size:1em; margin:0; }
 body{ background:var(--apple-gray-bg); color:var(--apple-ink); -webkit-font-smoothing:antialiased; }
 .scrabble-font{ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display',system-ui,sans-serif; font-weight:700; letter-spacing:-0.02em; }
 .scrabble-board{ background:#FBFBFD; border:1px solid var(--apple-gray-line); box-shadow:0 20px 40px -12px rgba(0,0,0,.15); }
@@ -38,6 +39,21 @@ body{ background:var(--apple-gray-bg); color:var(--apple-ink); -webkit-font-smoo
 .tile.temp{ box-shadow:0 0 0 3px var(--apple-orange), 0 4px 10px rgba(0,0,0,.15); z-index:10; }
 .rack{ background:#FFFFFF; border:1px solid var(--apple-gray-line); padding:10px; border-radius:16px; box-shadow:0 1px 2px rgba(0,0,0,.05); }
 .game-container{ max-width:1000px; margin:0 auto; }
+
+/* Game screen: board fixed on the left, everything else on the right, no page scroll */
+#screen-game{ height:100vh; height:100dvh; overflow:hidden; }
+.game-layout{ height:100%; display:flex; flex-direction:row; align-items:stretch; }
+#board-pane{ flex:0 0 auto; display:flex; align-items:center; justify-content:center; padding:14px; }
+#right-pane{ flex:1 1 auto; min-width:0; height:100%; overflow-y:auto; padding:10px 16px; display:flex; flex-direction:column; gap:8px; justify-content:center; }
+@media (max-height: 900px){
+  :root{ --tile-size: 38px; --rack-tile-size: 46px; }
+}
+@media (orientation: portrait){
+  #screen-game{ height:auto; overflow:visible; }
+  .game-layout{ flex-direction:column; height:auto; }
+  #board-pane{ padding:8px; }
+  #right-pane{ height:auto; overflow-y:visible; padding:8px 16px 24px; justify-content:flex-start; }
+}
 .board-grid{ display:grid; grid-template-columns:repeat(15,var(--tile-size)); gap:2px; padding:6px; background:var(--apple-gray-line); border-radius:8px; }
 .score-badge{ background:#FFFFFF; border:1px solid var(--apple-gray-line); color:var(--apple-ink); box-shadow:0 1px 2px rgba(0,0,0,.05); }
 .modal{ animation:modalPop .2s ease-out; }
@@ -115,63 +131,65 @@ body{ background:var(--apple-gray-bg); color:var(--apple-ink); -webkit-font-smoo
 </div>
 
 <!-- ============ SCREEN: GAME ============ -->
-<div id="screen-game" class="screen hidden pb-8">
-  <div class="bg-white/80 backdrop-blur-xl border-b border-[#D2D2D7] text-[#1D1D1F] sticky top-0 z-20">
-    <div class="game-container px-4 py-3 flex items-center justify-between flex-wrap gap-y-2">
-      <div class="flex items-center gap-x-3">
-        <div class="w-10 h-10 bg-[#1D1D1F] rounded-xl flex items-center justify-center">
-          <i class="fa-solid fa-chess-board text-white text-2xl"></i>
-        </div>
-        <div>
-          <h1 class="scrabble-font text-xl">Scrabble</h1>
-          <p id="connection-badge" class="text-[10px] text-[#34C759] font-medium">● connected</p>
-        </div>
-      </div>
-      <div id="turn-indicator" class="text-lg font-semibold"></div>
-      <div class="flex items-center gap-x-3">
-        <div class="text-xs text-[#8E8E93]">Bag: <span id="bag-count">0</span></div>
-        <button onclick="toggleSound()" class="w-8 h-8 rounded-full bg-[#F5F5F7] flex items-center justify-center"><i id="sound-toggle-icon" class="fa-solid fa-volume-high text-[#1D1D1F] text-sm"></i></button>
-      </div>
-    </div>
-  </div>
-
-  <div class="game-container px-4 pt-4">
-    <div id="match-progress" class="mb-4 hidden"></div>
-    <div class="flex items-start justify-between gap-x-4 mb-4 flex-wrap">
-      <div id="scoreboard" class="flex flex-wrap gap-2"></div>
-      <div id="last-word-panel" class="text-right ml-auto hidden">
-        <div class="text-[10px] uppercase tracking-wide text-[#8E8E93]">Last word</div>
-        <div id="last-word-text" class="font-semibold text-[#1D1D1F]"></div>
-      </div>
-    </div>
-
-    <div class="flex justify-center mb-4 overflow-x-auto">
+<div id="screen-game" class="screen hidden">
+  <div class="game-layout">
+    <div id="board-pane">
       <div class="scrabble-board rounded-2xl">
         <div id="board-grid" class="board-grid"></div>
       </div>
     </div>
 
-    <div id="my-turn-banner" class="text-center mb-2 font-semibold text-[#0071E3] hidden">Your turn — place your tiles</div>
-    <div id="waiting-banner" class="text-center mb-2 font-semibold text-[#8E8E93]">Waiting for turn...</div>
+    <div id="right-pane">
+      <div class="flex items-center justify-between gap-x-2">
+        <div class="flex items-center gap-x-2">
+          <div class="w-9 h-9 bg-[#1D1D1F] rounded-xl flex items-center justify-center flex-shrink-0">
+            <i class="fa-solid fa-chess-board text-white text-lg"></i>
+          </div>
+          <div>
+            <h1 class="scrabble-font text-base leading-tight">Scrabble</h1>
+            <p id="connection-badge" class="text-[9px] text-[#34C759] font-medium leading-tight">● connected</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-x-2">
+          <div class="text-[11px] text-[#8E8E93]">Bag: <span id="bag-count">0</span></div>
+          <button onclick="toggleSound()" class="w-7 h-7 rounded-full bg-[#F5F5F7] flex items-center justify-center flex-shrink-0"><i id="sound-toggle-icon" class="fa-solid fa-volume-high text-[#1D1D1F] text-xs"></i></button>
+        </div>
+      </div>
 
-    <div id="rack-wrapper">
-      <div class="rack flex justify-center gap-x-2 flex-wrap" id="rack"></div>
-    </div>
+      <div id="turn-indicator" class="text-base font-semibold text-center"></div>
 
-    <div class="flex gap-x-2 mt-4 flex-wrap justify-center">
-      <button onclick="clickPlayWord()" id="btn-play" class="px-6 py-3 bg-[#0071E3] text-white rounded-2xl font-semibold active:scale-[0.98]"><i class="fa-solid fa-play mr-1"></i>Play Word</button>
-      <button onclick="clickRecall()" class="px-6 py-3 bg-[#F5F5F7] text-[#1D1D1F] border border-[#D2D2D7] rounded-2xl font-semibold active:scale-[0.98]"><i class="fa-solid fa-rotate-left mr-1"></i>Recall</button>
-      <button onclick="clickExchange()" class="px-6 py-3 bg-[#F5F5F7] text-[#1D1D1F] border border-[#D2D2D7] rounded-2xl font-semibold active:scale-[0.98]"><i class="fa-solid fa-shuffle mr-1"></i>Exchange</button>
-      <button onclick="clickPass()" class="px-6 py-3 bg-[#F5F5F7] text-[#1D1D1F] border border-[#D2D2D7] rounded-2xl font-semibold active:scale-[0.98]"><i class="fa-solid fa-forward mr-1"></i>Pass</button>
-      <button onclick="shuffleRackOrder()" class="px-6 py-3 bg-white border border-[#D2D2D7] text-[#1D1D1F] rounded-2xl font-semibold active:scale-[0.98]"><i class="fa-solid fa-shuffle mr-1"></i>Shuffle</button>
-    </div>
+      <div id="match-progress" class="hidden"></div>
 
-    <p id="status-line" class="text-center mt-3 text-sm min-h-[20px] font-semibold"></p>
-    <div id="word-override-banner" class="hidden max-w-sm mx-auto mt-2 bg-white border border-[#D2D2D7] rounded-2xl p-3 text-center">
-      <div class="text-sm text-[#1D1D1F] mb-2">Not sure that's a real word — allow it anyway and add it to this game's dictionary?</div>
-      <div class="flex gap-x-2">
-        <button onclick="overrideAddWordAndRetry()" class="flex-1 py-2 bg-[#0071E3] text-white rounded-xl font-semibold text-sm">Add & Play</button>
-        <button onclick="hideWordOverride()" class="flex-1 py-2 bg-[#F5F5F7] text-[#1D1D1F] rounded-xl font-semibold text-sm">Cancel</button>
+      <div class="flex items-start justify-between gap-x-3 flex-wrap">
+        <div id="scoreboard" class="flex flex-wrap gap-1.5"></div>
+        <div id="last-word-panel" class="text-right ml-auto hidden">
+          <div class="text-[9px] uppercase tracking-wide text-[#8E8E93]">Last word</div>
+          <div id="last-word-text" class="font-semibold text-[#1D1D1F] text-sm"></div>
+        </div>
+      </div>
+
+      <div id="my-turn-banner" class="text-center font-semibold text-[#0071E3] hidden text-sm">Your turn — place your tiles</div>
+      <div id="waiting-banner" class="text-center font-semibold text-[#8E8E93] text-sm">Waiting for turn...</div>
+
+      <div id="rack-wrapper">
+        <div class="rack flex justify-center gap-x-1.5 flex-wrap" id="rack"></div>
+      </div>
+
+      <div class="flex gap-x-1.5 flex-wrap justify-center">
+        <button onclick="clickPlayWord()" id="btn-play" class="px-4 py-2 bg-[#0071E3] text-white rounded-xl font-semibold text-sm active:scale-[0.98]"><i class="fa-solid fa-play mr-1"></i>Play Word</button>
+        <button onclick="clickRecall()" class="px-4 py-2 bg-[#F5F5F7] text-[#1D1D1F] border border-[#D2D2D7] rounded-xl font-semibold text-sm active:scale-[0.98]"><i class="fa-solid fa-rotate-left mr-1"></i>Recall</button>
+        <button onclick="clickExchange()" class="px-4 py-2 bg-[#F5F5F7] text-[#1D1D1F] border border-[#D2D2D7] rounded-xl font-semibold text-sm active:scale-[0.98]"><i class="fa-solid fa-shuffle mr-1"></i>Exchange</button>
+        <button onclick="clickPass()" class="px-4 py-2 bg-[#F5F5F7] text-[#1D1D1F] border border-[#D2D2D7] rounded-xl font-semibold text-sm active:scale-[0.98]"><i class="fa-solid fa-forward mr-1"></i>Pass</button>
+        <button onclick="shuffleRackOrder()" class="px-4 py-2 bg-white border border-[#D2D2D7] text-[#1D1D1F] rounded-xl font-semibold text-sm active:scale-[0.98]"><i class="fa-solid fa-shuffle mr-1"></i>Shuffle</button>
+      </div>
+
+      <p id="status-line" class="text-center text-sm min-h-[18px] font-semibold"></p>
+      <div id="word-override-banner" class="hidden bg-white border border-[#D2D2D7] rounded-2xl p-3 text-center">
+        <div class="text-sm text-[#1D1D1F] mb-2">Not sure that's a real word — allow it anyway and add it to this game's dictionary?</div>
+        <div class="flex gap-x-2">
+          <button onclick="overrideAddWordAndRetry()" class="flex-1 py-2 bg-[#0071E3] text-white rounded-xl font-semibold text-sm">Add & Play</button>
+          <button onclick="hideWordOverride()" class="flex-1 py-2 bg-[#F5F5F7] text-[#1D1D1F] rounded-xl font-semibold text-sm">Cancel</button>
+        </div>
       </div>
     </div>
   </div>
