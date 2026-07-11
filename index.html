@@ -14,13 +14,13 @@
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
 :root{
-  --tile-size: 46px; --rack-tile-size: 54px;
+  --tile-size: 46px; --rack-tile-size: 66px;
   --apple-blue:#0071E3; --apple-blue-dark:#0059B3;
   --apple-green:#34C759; --apple-red:#FF3B30; --apple-orange:#FF9F0A;
   --apple-gray:#8E8E93; --apple-gray-bg:#F5F5F7; --apple-gray-line:#D2D2D7;
   --apple-ink:#1D1D1F; --apple-ink-secondary:#6E6E73;
 }
-@media (max-width: 900px){ :root{ --tile-size: 40px; --rack-tile-size: 50px; } }
+@media (max-width: 900px){ :root{ --tile-size: 40px; --rack-tile-size: 58px; } }
 *{ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text',system-ui,sans-serif; }
 h1,h3,p{ font-size:1em; margin:0; }
 body{ background:var(--apple-gray-bg); color:var(--apple-ink); -webkit-font-smoothing:antialiased; }
@@ -32,21 +32,22 @@ body{ background:var(--apple-gray-bg); color:var(--apple-ink); -webkit-font-smoo
 .premium-tl{ background:var(--apple-blue); color:#fff; } .premium-dl{ background:#D6ECFF; color:var(--apple-blue-dark); }
 .premium-center{ background:linear-gradient(135deg,var(--apple-orange),#FFB84D); color:#fff; }
 .tile{ width:var(--tile-size); height:var(--tile-size); background:#FFFFFF; border:1px solid var(--apple-gray-line); box-shadow:0 1px 3px rgba(0,0,0,.08); border-radius:8px; display:flex; align-items:center; justify-content:center; font-weight:600; color:var(--apple-ink); font-size:20px; position:relative; cursor:grab; user-select:none; touch-action:none; transition:transform .1s; }
-.tile.rack-size{ width:var(--rack-tile-size); height:var(--rack-tile-size); font-size:24px; }
+.tile.rack-size{ width:var(--rack-tile-size); height:var(--rack-tile-size); font-size:28px; }
 .tile .pt{ position:absolute; bottom:2px; right:4px; font-size:8px; font-weight:600; color:var(--apple-ink-secondary); }
-.tile.blank{ background:#F2F2F7; color:var(--apple-ink-secondary); }
+.tile.blank{ background:#F5E6FF; border-color:#AF52DE; color:#8E28B8; }
 .tile.selected{ box-shadow:0 0 0 3px var(--apple-blue), 0 4px 10px rgba(0,113,227,.25); transform:translateY(-3px); }
 .tile.temp{ box-shadow:0 0 0 3px var(--apple-orange), 0 4px 10px rgba(0,0,0,.15); z-index:10; }
+.tile.last-word{ box-shadow:0 0 0 3px var(--apple-green), 0 4px 10px rgba(52,199,89,.3); z-index:5; }
 .rack{ background:#FFFFFF; border:1px solid var(--apple-gray-line); padding:10px; border-radius:16px; box-shadow:0 1px 2px rgba(0,0,0,.05); }
 .game-container{ max-width:1000px; margin:0 auto; }
 
 /* Game screen: board fixed on the left, everything else on the right, no page scroll */
 #screen-game{ height:100vh; height:100dvh; overflow:hidden; }
 .game-layout{ height:100%; display:flex; flex-direction:row; align-items:stretch; }
-#board-pane{ flex:0 0 auto; display:flex; align-items:center; justify-content:center; padding:14px; }
-#right-pane{ flex:1 1 auto; min-width:0; height:100%; overflow-y:auto; padding:10px 16px; display:flex; flex-direction:column; gap:8px; justify-content:center; }
+#board-pane{ flex:0 0 auto; display:flex; align-items:flex-start; justify-content:center; padding:14px; }
+#right-pane{ flex:1 1 auto; min-width:0; height:100%; overflow-y:auto; padding:10px 16px; display:flex; flex-direction:column; gap:8px; justify-content:flex-start; }
 @media (max-height: 900px){
-  :root{ --tile-size: 38px; --rack-tile-size: 46px; }
+  :root{ --tile-size: 38px; --rack-tile-size: 56px; }
 }
 @media (orientation: portrait){
   #screen-game{ height:auto; overflow:visible; }
@@ -119,6 +120,8 @@ body{ background:var(--apple-gray-bg); color:var(--apple-ink); -webkit-font-smoo
     <div class="bg-white rounded-3xl shadow-sm border border-[#D2D2D7] p-6">
       <h3 class="font-semibold text-lg mb-2 text-left">Language</h3>
       <div id="lobby-language" class="flex gap-x-2 mb-4"></div>
+      <h3 class="font-semibold text-lg mb-2 text-left">Tiles in this game</h3>
+      <div id="lobby-tile-distribution" class="flex flex-wrap gap-1 mb-4 max-h-32 overflow-y-auto"></div>
       <h3 class="font-semibold text-lg mb-3 text-left">Players</h3>
       <div id="lobby-players" class="space-y-2 text-left mb-4"></div>
       <button id="btn-start-game" onclick="hostStartGame()" class="w-full py-4 bg-[#0071E3] text-white rounded-2xl font-semibold text-lg disabled:opacity-40" disabled>
@@ -151,8 +154,9 @@ body{ background:var(--apple-gray-bg); color:var(--apple-ink); -webkit-font-smoo
           </div>
         </div>
         <div class="flex items-center gap-x-2">
-          <div class="text-[11px] text-[#8E8E93]">Bag: <span id="bag-count">0</span></div>
+          <div id="bag-badge" class="text-[11px] px-2 py-1 rounded-full font-medium">Bag: <span id="bag-count">0</span></div>
           <button onclick="toggleSound()" class="w-7 h-7 rounded-full bg-[#F5F5F7] flex items-center justify-center flex-shrink-0"><i id="sound-toggle-icon" class="fa-solid fa-volume-high text-[#1D1D1F] text-xs"></i></button>
+          <button id="btn-end-game" onclick="hostEndGame()" class="hidden text-[10px] px-2 py-1 rounded-full bg-[#FFE1DE] text-[#C4281B] font-semibold flex-shrink-0">End Game</button>
         </div>
       </div>
 
@@ -160,26 +164,21 @@ body{ background:var(--apple-gray-bg); color:var(--apple-ink); -webkit-font-smoo
 
       <div id="match-progress" class="hidden"></div>
 
-      <div class="flex items-start justify-between gap-x-3 flex-wrap">
-        <div id="scoreboard" class="flex flex-wrap gap-1.5"></div>
-        <div id="last-word-panel" class="text-right ml-auto hidden">
-          <div class="text-[9px] uppercase tracking-wide text-[#8E8E93]">Last word</div>
-          <div id="last-word-text" class="font-semibold text-[#1D1D1F] text-sm"></div>
-        </div>
-      </div>
+      <div id="scoreboard" class="flex flex-wrap gap-1.5"></div>
 
       <div id="my-turn-banner" class="text-center font-semibold text-[#0071E3] hidden text-sm">Your turn — place your tiles</div>
       <div id="waiting-banner" class="text-center font-semibold text-[#8E8E93] text-sm">Waiting for turn...</div>
+      <div id="live-score-preview" class="hidden text-center font-semibold text-sm"></div>
 
       <div id="rack-wrapper">
         <div class="rack flex justify-center gap-x-1.5 flex-wrap" id="rack"></div>
       </div>
 
       <div class="flex gap-x-1.5 flex-wrap justify-center">
-        <button onclick="clickPlayWord()" id="btn-play" class="px-4 py-2 bg-[#0071E3] text-white rounded-xl font-semibold text-sm active:scale-[0.98]"><i class="fa-solid fa-play mr-1"></i>Play Word</button>
-        <button onclick="clickRecall()" class="px-4 py-2 bg-[#F5F5F7] text-[#1D1D1F] border border-[#D2D2D7] rounded-xl font-semibold text-sm active:scale-[0.98]"><i class="fa-solid fa-rotate-left mr-1"></i>Recall</button>
-        <button onclick="clickExchange()" class="px-4 py-2 bg-[#F5F5F7] text-[#1D1D1F] border border-[#D2D2D7] rounded-xl font-semibold text-sm active:scale-[0.98]"><i class="fa-solid fa-shuffle mr-1"></i>Exchange</button>
-        <button onclick="clickPass()" class="px-4 py-2 bg-[#F5F5F7] text-[#1D1D1F] border border-[#D2D2D7] rounded-xl font-semibold text-sm active:scale-[0.98]"><i class="fa-solid fa-forward mr-1"></i>Pass</button>
+        <button onclick="clickPlayWord()" id="btn-play" class="px-4 py-2 bg-[#0071E3] text-white rounded-xl font-semibold text-sm active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none"><i class="fa-solid fa-play mr-1"></i>Play Word</button>
+        <button onclick="clickRecall()" id="btn-recall" class="px-4 py-2 bg-[#F5F5F7] text-[#1D1D1F] border border-[#D2D2D7] rounded-xl font-semibold text-sm active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none"><i class="fa-solid fa-rotate-left mr-1"></i>Recall</button>
+        <button onclick="clickExchange()" id="btn-exchange" class="px-4 py-2 bg-[#F5F5F7] text-[#1D1D1F] border border-[#D2D2D7] rounded-xl font-semibold text-sm active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none"><i class="fa-solid fa-shuffle mr-1"></i>Exchange</button>
+        <button onclick="clickPass()" id="btn-pass" class="px-4 py-2 bg-[#F5F5F7] text-[#1D1D1F] border border-[#D2D2D7] rounded-xl font-semibold text-sm active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none"><i class="fa-solid fa-forward mr-1"></i>Pass</button>
         <button onclick="shuffleRackOrder()" class="px-4 py-2 bg-white border border-[#D2D2D7] text-[#1D1D1F] rounded-xl font-semibold text-sm active:scale-[0.98]"><i class="fa-solid fa-shuffle mr-1"></i>Shuffle</button>
       </div>
 
@@ -463,7 +462,7 @@ function stateForRecipient(recipientClientId){
   return {
     roomCode: state.roomCode, started: state.started, languageMode: state.languageMode,
     board: state.board, currentPlayerIndex: state.currentPlayerIndex, lastPlay: state.lastPlay, matchHistory: state.matchHistory,
-    consecutivePasses: state.consecutivePasses, bagCount: state.bag.length,
+    consecutivePasses: state.consecutivePasses, bagCount: state.bag.length, initialBagSize: state.initialBagSize,
     log: state.log.slice(-5),
     players: state.players.map(p => p.clientId === recipientClientId
       ? { ...p }
@@ -515,6 +514,12 @@ async function handleAction(clientId, action, payload, conn){
   if (action === 'startGame'){
     if (clientId !== state.players[0].clientId) return; // only original host starts
     beginGame();
+    return;
+  }
+
+  if (action === 'forceEndGame'){
+    if (clientId !== state.players[0].clientId) return; // only original host can force-end
+    endGame();
     return;
   }
 
@@ -594,6 +599,7 @@ function nextTurn(){
 
 function beginGame(){
   state.bag = createBag(state.languageMode);
+  state.initialBagSize = state.bag.length;
   state.players.forEach(p => { p.rack = state.bag.splice(0, 7); p.score = 0; });
   state.currentPlayerIndex = Math.floor(Math.random() * state.players.length);
   state.started = true;
@@ -741,7 +747,7 @@ async function tryPlayWord(player, placements){
   const mainWord = formed.reduce((best,w)=> w.positions.length>(best?best.positions.length:0) ? w : best, null);
   const playedWord = mainWord ? wordString(state.board, mainWord.positions) : '';
   state.log.push(player.name + ' played "' + playedWord + '" for ' + score + ' pts');
-  state.lastPlay = { playerName: player.name, word: playedWord, score };
+  state.lastPlay = { playerName: player.name, word: playedWord, score, positions: mainWord ? mainWord.positions.map(p=>({row:p.row,col:p.col})) : [] };
 
   const need = 7 - player.rack.length;
   if (need>0 && state.bag.length>0) player.rack.push(...state.bag.splice(0, Math.min(need, state.bag.length)));
@@ -784,8 +790,17 @@ function checkGameEnd(){
   if (state.bag.length===0 && empty) endGame();
 }
 function endGame(){
+  const deductions = [];
+  state.players.forEach(p => {
+    const unplayedValue = p.rack.reduce((sum, t) => sum + (t.points || 0), 0);
+    if (unplayedValue > 0){
+      p.score -= unplayedValue;
+      deductions.push(p.name + ' -' + unplayedValue);
+    }
+  });
   const winner = [...state.players].sort((a,b)=>b.score-a.score)[0];
-  state.log.push('Game over. ' + winner.name + ' wins with ' + winner.score + '!');
+  const deductionNote = deductions.length ? ' Unplayed tiles deducted: ' + deductions.join(', ') + '.' : '';
+  state.log.push('Game over. ' + winner.name + ' wins with ' + winner.score + '!' + deductionNote);
   state.matchHistory = state.matchHistory || [];
   state.matchHistory.push({
     winner: winner.name,
@@ -814,6 +829,29 @@ function showLobby(){ showScreen('lobby'); document.getElementById('lobby-roomco
 function renderLobbyIfShown(){ if (!document.getElementById('screen-lobby').classList.contains('hidden')) renderLobbyFromState(); }
 
 let lastSeenPlayerCount = null;
+function renderTileDistribution(mode){
+  const el = document.getElementById('lobby-tile-distribution');
+  if (!el) return;
+  const spec = getLetterSpec(mode || 'english');
+  const letters = Object.keys(spec.dist).filter(l => l !== '').sort();
+  let total = 0;
+  const chips = letters.map(l => {
+    const count = spec.dist[l];
+    total += count;
+    return `<div class="bg-[#F5F5F7] border border-[#D2D2D7] rounded-lg px-1.5 py-1 text-[11px] font-semibold flex items-center gap-x-1">
+      <span>${l}</span><span class="text-[#8E8E93] font-normal">×${count}</span><span class="text-[9px] text-[#8E8E93] font-normal">(${spec.points[l]}pt)</span>
+    </div>`;
+  });
+  const blankCount = spec.dist[''] || 0;
+  total += blankCount;
+  if (blankCount){
+    chips.unshift(`<div class="bg-[#F5E6FF] border border-[#AF52DE] rounded-lg px-1.5 py-1 text-[11px] font-semibold flex items-center gap-x-1 text-[#8E28B8]">
+      <span>Blank</span><span class="font-normal">×${blankCount}</span>
+    </div>`);
+  }
+  el.innerHTML = `<div class="w-full text-[10px] text-[#8E8E93] mb-1">${total} tiles total</div>` + chips.join('');
+}
+
 function renderLobbyFromState(){
   const src = isHost ? state : myRenderState;
   if (!src) return;
@@ -828,6 +866,8 @@ function renderLobbyFromState(){
       class="flex-1 py-2 rounded-xl font-semibold text-sm border ${src.languageMode===val ? 'bg-[#0071E3] text-white border-[#0071E3]' : 'bg-white text-[#1D1D1F] border-[#D2D2D7]'} ${isHost?'':'opacity-70'}">
       ${label}
     </button>`).join('');
+
+  renderTileDistribution(src.languageMode);
 
   const wrap = document.getElementById('lobby-players');
   wrap.innerHTML = src.players.map(p => `
@@ -846,6 +886,12 @@ function renderLobbyFromState(){
   }
 }
 function hostStartGame(){ Sound.click(); submitAction('startGame'); }
+function hostEndGame(){
+  if (!isHost) return;
+  if (!confirm('End the game now? Scores will be finalised as they stand — useful if nobody can play a tile.')) return;
+  Sound.click();
+  submitAction('forceEndGame');
+}
 function setLanguageMode(mode){
   if (!isHost) return;
   state.languageMode = mode;
@@ -873,10 +919,45 @@ function renderMatchHistory(s){
     </div>`;
 }
 
+function updateBagBadgeColor(count, total){
+  const el = document.getElementById('bag-badge');
+  if (!el) return;
+  const pct = total ? count / total : 1;
+  let bg, fg;
+  if (pct > 0.66){ bg = '#E3F8E9'; fg = '#1E7A34'; }       // green — plenty left
+  else if (pct > 0.33){ bg = '#FFF3D6'; fg = '#946200'; }   // yellow — getting low
+  else { bg = '#FFE1DE'; fg = '#C4281B'; }                  // red — nearly empty
+  el.style.backgroundColor = bg;
+  el.style.color = fg;
+}
+
+function updateLiveScorePreview(){
+  const el = document.getElementById('live-score-preview');
+  if (!el) return;
+  if (!myRenderState || placementsThisTurn.length === 0){ el.classList.add('hidden'); return; }
+
+  const tempBoard = myRenderState.board.map(row => row.slice());
+  const staged = placementsThisTurn.map(p => ({ row:p.row, col:p.col, tile:p.tile }));
+  staged.forEach(s => { tempBoard[s.row][s.col] = s.tile; });
+
+  const validation = validatePlacement(tempBoard, staged);
+  el.classList.remove('hidden');
+  if (!validation.valid){
+    el.textContent = validation.message;
+    el.className = 'text-center font-semibold text-sm text-[#FF3B30]';
+    return;
+  }
+  const score = calcScore(tempBoard, staged);
+  el.textContent = 'Potential score: +' + score + (staged.length===7 ? ' (Bingo! +50)' : '');
+  el.className = 'text-center font-semibold text-sm text-[#0071E3]';
+}
+
 function renderGame(){
   updateSoundToggleIcon();
   const s = myRenderState;
   document.getElementById('bag-count').textContent = s.bagCount;
+  updateBagBadgeColor(s.bagCount, s.initialBagSize);
+  document.getElementById('btn-end-game').classList.toggle('hidden', !isHost);
   const me = s.players.find(p=>p.clientId===myClientId);
   const current = s.players[s.currentPlayerIndex];
   const myTurn = current && current.clientId === myClientId;
@@ -884,28 +965,24 @@ function renderGame(){
   document.getElementById('turn-indicator').textContent = current ? (myTurn ? 'Your turn' : current.name + "'s turn") : '';
   document.getElementById('my-turn-banner').classList.toggle('hidden', !myTurn);
   document.getElementById('waiting-banner').classList.toggle('hidden', myTurn);
-  document.getElementById('rack-wrapper').classList.toggle('disabled-overlay', !myTurn);
-  ['btn-play'].forEach(id=>{}); // buttons are visually disabled via overlay class on rack-wrapper only; actions also enforce turn.
+  // Rack stays fully interactive even out of turn, so tiles can still be reordered while waiting.
+  ['btn-play','btn-recall','btn-exchange','btn-pass'].forEach(id => { document.getElementById(id).disabled = !myTurn; });
 
   renderMatchHistory(s);
 
-  // scoreboard
-  document.getElementById('scoreboard').innerHTML = s.players.map(p => `
-    <div class="score-badge rounded-xl px-3 py-2 text-sm ${p.clientId===current?.clientId ? 'ring-2 ring-[#0071E3]' : ''}">
+  // scoreboard — current player's badge is inverted (blue background, white text) to stand out
+  document.getElementById('scoreboard').innerHTML = s.players.map(p => {
+    const isCurrent = p.clientId===current?.clientId;
+    return `
+    <div class="score-badge rounded-xl px-3 py-2 text-sm ${isCurrent ? 'bg-[#0071E3] border-[#0071E3] text-white' : ''}">
       <div class="font-bold">${escapeHtml(p.name)} ${p.clientId===myClientId?'(you)':''}</div>
-      <div>${p.score} pts ${p.connected===false?'<span class=\"text-[#FF3B30]\">· offline</span>':''}</div>
-    </div>`).join('');
+      <div class="${isCurrent ? 'text-white/90' : ''}">${p.score} pts ${p.connected===false?'<span class=\"text-[#FF3B30]\">· offline</span>':''}</div>
+    </div>`;
+  }).join('');
 
-  const lastWordPanel = document.getElementById('last-word-panel');
-  if (s.lastPlay && s.lastPlay.word){
-    lastWordPanel.classList.remove('hidden');
-    document.getElementById('last-word-text').textContent = s.lastPlay.word + ' · ' + s.lastPlay.score + ' pts (' + s.lastPlay.playerName + ')';
-  } else {
-    lastWordPanel.classList.add('hidden');
-  }
-
-  renderBoard(s.board);
+  renderBoard(s.board, s.lastPlay);
   renderRack(me);
+  updateLiveScorePreview();
 
   if (s.log && s.log.length) setStatusLine(s.log[s.log.length-1], false);
   if (!s.started){
@@ -915,21 +992,23 @@ function renderGame(){
   }
 }
 
-function renderBoard(board){
+function renderBoard(board, lastPlay){
   const grid = document.getElementById('board-grid');
   grid.innerHTML = '';
+  const lastPositions = (lastPlay && lastPlay.positions) ? lastPlay.positions : [];
   for (let r=0;r<BOARD_SIZE;r++){
     for (let c=0;c<BOARD_SIZE;c++){
       const cell = document.createElement('div');
       const tempIdx = placementsThisTurn.findIndex(p=>p.row===r&&p.col===c);
       const tile = board[r][c] || (tempIdx!==-1 ? placementsThisTurn[tempIdx].tile : null);
       const premium = getPremium(r,c);
+      const isLastWord = board[r][c] && lastPositions.some(p=>p.row===r&&p.col===c);
       cell.className = 'board-cell flex items-center justify-center rounded-sm ' + (premium ? getPremiumClass(premium) : 'bg-[#FBFBFD]');
       cell.dataset.row = r; cell.dataset.col = c;
       cell.onclick = () => handleBoardClick(r,c);
       if (tile){
         const tEl = document.createElement('div');
-        tEl.className = 'tile' + (tile.isBlank?' blank':'') + (tempIdx!==-1?' temp':'');
+        tEl.className = 'tile' + (tile.isBlank?' blank':'') + (tempIdx!==-1?' temp':'') + (isLastWord?' last-word':'');
         tEl.innerHTML = `${tile.playedAs||tile.letter}<span class="pt">${tile.points}</span>`;
         if (tempIdx!==-1){
           // only this-turn (uncommitted) tiles are draggable
@@ -996,9 +1075,14 @@ function handleBoardClick(row,col){
    ========================================================================= */
 const DRAG_THRESHOLD = 8;
 
-function beginPointerTrack(e, source){
+function isMyTurn(){
   const current = myRenderState.players[myRenderState.currentPlayerIndex];
-  if (!current || current.clientId !== myClientId) return; // only draggable on your turn
+  return !!(current && current.clientId === myClientId);
+}
+
+function beginPointerTrack(e, source){
+  // Rack tiles can always be picked up (for reordering your rack), even out of turn.
+  // Board tiles (this-turn placements) only exist during your own turn, so no extra gate needed there.
   e.preventDefault();
   const startX = e.clientX, startY = e.clientY;
   let moved = false, ghost = null;
@@ -1015,7 +1099,7 @@ function beginPointerTrack(e, source){
     window.removeEventListener('pointermove', onMove);
     if (ghost) ghost.remove();
     if (!moved){
-      if (source.type==='rack') selectTile(source.tile);
+      if (source.type==='rack'){ if (isMyTurn()) selectTile(source.tile); }
       else if (source.type==='board'){ removeTempAt(source.row, source.col); Sound.pickup(); renderGame(); }
       return;
     }
@@ -1045,6 +1129,7 @@ function resolveDrop(source, x, y){
   const rackEl = el ? el.closest('#rack') : null;
 
   if (cellEl && cellEl.dataset.row !== undefined){
+    if (!isMyTurn()){ setStatusLine("Wait for your turn to place tiles.", true); renderGame(); return; }
     const row = parseInt(cellEl.dataset.row,10), col = parseInt(cellEl.dataset.col,10);
     if (source.type==='board') removeTempAt(source.row, source.col);
     else selectedTileForPlacement = null;
