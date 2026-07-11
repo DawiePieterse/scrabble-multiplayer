@@ -1,517 +1,864 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Scrabble Multiplayer">
-    <title>Scrabble • Multiplayer</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <!-- Firebase SDK (compat for simplicity) -->
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Playfair+Display:wght@700&amp;display=swap');
-        
-        :root {
-            --tile-size: 48px;
-            --rack-tile-size: 54px;
-        }
-        
-        body { font-family: 'Inter', system_ui, sans-serif; }
-        .scrabble-font { font-family: 'Playfair Display', Georgia, serif; }
-
-        .scrabble-board {
-            background: linear-gradient(#d4a373, #b88c5e);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3), 
-                       inset 0 0 0 8px #8B5E3C,
-                       inset 0 0 0 12px #d4a373;
-            border: 8px solid #5c4033;
-        }
-
-        .board-cell {
-            width: var(--tile-size);
-            height: var(--tile-size);
-            font-size: 10px;
-            transition: all 0.1s ease;
-            user-select: none;
-            position: relative;
-        }
-        
-        .tile {
-            width: var(--tile-size);
-            height: var(--tile-size);
-            background: linear-gradient(#fefce8, #f5d5a8);
-            border: 2px solid #854d0e;
-            box-shadow: 0 3px 6px rgba(0,0,0,0.25), 
-                       inset 0 -2px 4px rgba(255,255,255,0.5),
-                       inset 2px 2px 4px rgba(255,255,255,0.3);
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            color: #431407;
-            font-size: 22px;
-            position: relative;
-            cursor: grab;
-            user-select: none;
-            transition: transform 0.1s, box-shadow 0.1s;
-            touch-action: none;
-        }
-        
-        .tile.blank { background: linear-gradient(#e7e5e4, #d6d3d1); color: #57534e; }
-        .tile.temp { box-shadow: 0 0 0 3px #facc15, 0 4px 8px rgba(0,0,0,0.25); z-index: 10; }
-
-        .rack { background: #78350f; padding: 8px; border-radius: 12px; }
-        
-        .premium-tw { background-color: #e11d48; color: white; }
-        .premium-dw { background-color: #fda4af; color: #9f1239; }
-        .premium-tl { background-color: #1e40af; color: white; }
-        .premium-dl { background-color: #93c5fd; color: #1e40af; }
-        .premium-center { 
-            background: radial-gradient(circle, #fef08c 0%, #ca8a04 100%);
-            color: #713f12;
-        }
-
-        .game-container { max-width: 1100px; margin: 0 auto; }
-        .board-grid { display: grid; grid-template-columns: repeat(15, var(--tile-size)); gap: 2px; padding: 6px; background: #5c4033; border-radius: 4px; }
-
-        .score-badge {
-            background: linear-gradient(#fefce8, #fef08c);
-            color: #713f12;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Scrabble LAN">
+<title>Scrabble LAN • Multiplayer</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+:root{
+  --tile-size: 46px; --rack-tile-size: 54px;
+  --apple-blue:#0071E3; --apple-blue-dark:#0059B3;
+  --apple-green:#34C759; --apple-red:#FF3B30; --apple-orange:#FF9F0A;
+  --apple-gray:#8E8E93; --apple-gray-bg:#F5F5F7; --apple-gray-line:#D2D2D7;
+  --apple-ink:#1D1D1F; --apple-ink-secondary:#6E6E73;
+}
+@media (max-width: 900px){ :root{ --tile-size: 40px; --rack-tile-size: 50px; } }
+*{ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text',system-ui,sans-serif; }
+body{ background:var(--apple-gray-bg); color:var(--apple-ink); -webkit-font-smoothing:antialiased; }
+.scrabble-font{ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display',system-ui,sans-serif; font-weight:700; letter-spacing:-0.02em; }
+.scrabble-board{ background:#FBFBFD; border:1px solid var(--apple-gray-line); box-shadow:0 20px 40px -12px rgba(0,0,0,.15); }
+.board-cell{ width:var(--tile-size); height:var(--tile-size); font-size:9px; user-select:none; position:relative; transition:filter .1s, transform .1s; }
+.board-cell:hover{ filter:brightness(1.03); }
+.premium-tw{ background:var(--apple-red); color:#fff; } .premium-dw{ background:#FFE1E8; color:#D70015; }
+.premium-tl{ background:var(--apple-blue); color:#fff; } .premium-dl{ background:#D6ECFF; color:var(--apple-blue-dark); }
+.premium-center{ background:linear-gradient(135deg,var(--apple-orange),#FFB84D); color:#fff; }
+.tile{ width:var(--tile-size); height:var(--tile-size); background:#FFFFFF; border:1px solid var(--apple-gray-line); box-shadow:0 1px 3px rgba(0,0,0,.08); border-radius:8px; display:flex; align-items:center; justify-content:center; font-weight:600; color:var(--apple-ink); font-size:20px; position:relative; cursor:pointer; user-select:none; touch-action:manipulation; transition:transform .1s; }
+.tile.rack-size{ width:var(--rack-tile-size); height:var(--rack-tile-size); font-size:24px; }
+.tile .pt{ position:absolute; bottom:2px; right:4px; font-size:8px; font-weight:600; color:var(--apple-ink-secondary); }
+.tile.blank{ background:#F2F2F7; color:var(--apple-ink-secondary); }
+.tile.selected{ box-shadow:0 0 0 3px var(--apple-blue), 0 4px 10px rgba(0,113,227,.25); transform:translateY(-3px); }
+.tile.temp{ box-shadow:0 0 0 3px var(--apple-orange), 0 4px 10px rgba(0,0,0,.15); z-index:10; }
+.rack{ background:#FFFFFF; border:1px solid var(--apple-gray-line); padding:10px; border-radius:16px; box-shadow:0 1px 2px rgba(0,0,0,.05); }
+.game-container{ max-width:1000px; margin:0 auto; }
+.board-grid{ display:grid; grid-template-columns:repeat(15,var(--tile-size)); gap:2px; padding:6px; background:var(--apple-gray-line); border-radius:8px; }
+.score-badge{ background:#FFFFFF; border:1px solid var(--apple-gray-line); color:var(--apple-ink); box-shadow:0 1px 2px rgba(0,0,0,.05); }
+.modal{ animation:modalPop .2s ease-out; }
+@keyframes modalPop{ from{transform:scale(.9);opacity:0;} to{transform:scale(1);opacity:1;} }
+.disabled-overlay{ opacity:.45; pointer-events:none; }
+.pulse-dot{ animation:pulse 1.5s infinite; }
+@keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:.3;} }
+.screen{ min-height:100vh; }
+</style>
 </head>
-<body class="bg-[#f8f1e9] text-[#431407] min-h-screen pb-8">
-    <!-- Header -->
-    <div class="bg-[#5c4033] text-white shadow-lg">
-        <div class="max-w-[1100px] mx-auto px-4 py-3 flex items-center justify-between">
-            <div class="flex items-center gap-x-3">
-                <div class="w-11 h-11 bg-[#fefce8] rounded-xl flex items-center justify-center shadow-inner">
-                    <i class="fa-solid fa-chess-board text-[#854d0e] text-3xl"></i>
-                </div>
-                <div>
-                    <h1 class="scrabble-font text-3xl font-bold tracking-tight">Scrabble</h1>
-                    <p class="text-[#d4a373] text-xs -mt-1 flex items-center gap-x-2">
-                        Multiplayer <span class="px-2 py-0.5 text-[10px] bg-white/20 rounded-full">Beta</span>
-                    </p>
-                </div>
-            </div>
-            
-            <div class="flex items-center gap-x-2" id="header-actions">
-                <!-- Dynamic buttons added by JS -->
-            </div>
-        </div>
+<body class="bg-[#F5F5F7] text-[#1D1D1F] min-h-screen">
+
+<!-- ============ SCREEN: HOME (host or join) ============ -->
+<div id="screen-home" class="screen flex items-center justify-center p-6">
+  <div class="max-w-md w-full text-center">
+    <div class="w-20 h-20 mx-auto bg-[#1D1D1F] rounded-[22px] flex items-center justify-center shadow-lg mb-4">
+      <i class="fa-solid fa-chess-board text-white text-4xl"></i>
+    </div>
+    <h1 class="scrabble-font text-4xl mb-1">Scrabble LAN</h1>
+    <p class="text-[#6E6E73] mb-8">Multiplayer on the same wifi — no server needed</p>
+
+    <div class="bg-white rounded-3xl shadow-sm border border-[#D2D2D7] p-6 space-y-4">
+      <input id="input-name" maxlength="16" placeholder="Your name" class="w-full text-center text-lg py-3 px-4 rounded-2xl border border-[#D2D2D7] focus:border-[#0071E3] outline-none">
+
+      <button onclick="startHostFlow()" class="w-full py-4 bg-[#0071E3] text-white rounded-2xl font-semibold text-lg active:scale-[0.98]">
+        <i class="fa-solid fa-house mr-2"></i>Host Game
+      </button>
+
+      <div class="flex items-center gap-x-2 text-[#8E8E93] text-xs">
+        <div class="h-px bg-[#D2D2D7] flex-1"></div>OR<div class="h-px bg-[#D2D2D7] flex-1"></div>
+      </div>
+
+      <input id="input-roomcode" maxlength="6" placeholder="ROOM CODE" class="w-full text-center text-2xl tracking-widest font-semibold py-3 px-4 rounded-2xl border border-[#D2D2D7] focus:border-[#0071E3] outline-none uppercase">
+      <button onclick="startJoinFlow()" class="w-full py-4 bg-[#1D1D1F] text-white rounded-2xl font-semibold text-lg active:scale-[0.98]">
+        <i class="fa-solid fa-right-to-bracket mr-2"></i>Join Game
+      </button>
     </div>
 
-    <div class="max-w-[1100px] mx-auto px-4 pt-6 game-container" id="main-content">
-        
-        <!-- Lobby / Home Screen -->
-        <div id="lobby-screen">
-            <div class="text-center mb-8">
-                <h2 class="text-4xl font-bold mb-2">Play with friends on their own iPads</h2>
-                <p class="text-[#854d0e]/70">Create a game or join with a code. Each player sees only their own rack.</p>
-            </div>
+    <p id="home-status" class="mt-4 text-sm text-[#6E6E73] min-h-[20px] whitespace-pre-line text-left"></p>
+    <p class="mt-6 text-xs text-[#8E8E93]">First connection needs internet briefly (to find each other). Gameplay then runs over your wifi.</p>
+  </div>
+</div>
 
-            <div class="max-w-md mx-auto bg-white rounded-3xl shadow p-8 border border-[#e7d9c9]">
-                <div class="space-y-4">
-                    <!-- Player Name -->
-                    <div>
-                        <label class="block text-sm font-semibold mb-1.5">Your Name</label>
-                        <input id="player-name" type="text" value="Dawie" 
-                               class="w-full px-4 py-3 bg-[#f8f1e9] border border-[#d4a373] rounded-2xl text-lg focus:outline-none">
-                    </div>
+<!-- ============ SCREEN: LOBBY ============ -->
+<div id="screen-lobby" class="screen hidden flex items-center justify-center p-6">
+  <div class="max-w-md w-full text-center">
+    <p class="text-[#6E6E73] mb-1">Room code</p>
+    <div id="lobby-roomcode" class="text-6xl font-bold tracking-widest scrabble-font mb-6 text-[#1D1D1F]">----</div>
 
-                    <!-- Create Game -->
-                    <button onclick="createGame()" 
-                            class="w-full py-4 bg-[#166534] hover:bg-[#14532d] text-white font-bold text-lg rounded-2xl flex items-center justify-center gap-x-3 shadow active:scale-[0.985]">
-                        <i class="fa-solid fa-plus"></i>
-                        <span>Create New Game</span>
-                    </button>
+    <div class="bg-white rounded-3xl shadow-sm border border-[#D2D2D7] p-6">
+      <h3 class="font-semibold text-lg mb-2 text-left">Language</h3>
+      <div id="lobby-language" class="flex gap-x-2 mb-4"></div>
+      <h3 class="font-semibold text-lg mb-3 text-left">Players</h3>
+      <div id="lobby-players" class="space-y-2 text-left mb-4"></div>
+      <button id="btn-start-game" onclick="hostStartGame()" class="w-full py-4 bg-[#0071E3] text-white rounded-2xl font-semibold text-lg disabled:opacity-40" disabled>
+        Start Game
+      </button>
+      <p id="lobby-note" class="text-xs text-[#8E8E93] mt-3">Need at least 2 players to start.</p>
+    </div>
+    <p id="lobby-status" class="mt-4 text-sm text-[#6E6E73] min-h-[20px]"></p>
+  </div>
+</div>
 
-                    <div class="flex items-center gap-x-3">
-                        <div class="flex-1 h-px bg-[#e7d9c9]"></div>
-                        <span class="text-xs text-[#854d0e]/60">OR</span>
-                        <div class="flex-1 h-px bg-[#e7d9c9]"></div>
-                    </div>
-
-                    <!-- Join Game -->
-                    <div class="flex gap-x-2">
-                        <input id="join-code" type="text" placeholder="Enter room code (e.g. KX9P2M)" 
-                               class="flex-1 px-4 py-3 bg-[#f8f1e9] border border-[#d4a373] rounded-2xl text-lg uppercase tracking-widest focus:outline-none">
-                        <button onclick="joinGame()" 
-                                class="px-6 py-3 bg-[#854d0e] hover:bg-[#5c4033] text-white font-bold rounded-2xl active:scale-[0.985]">
-                            Join
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="text-center mt-6 text-xs text-[#854d0e]/60">
-                Works best when everyone has a good internet connection
-            </div>
+<!-- ============ SCREEN: GAME ============ -->
+<div id="screen-game" class="screen hidden pb-8">
+  <div class="bg-white/80 backdrop-blur-xl border-b border-[#D2D2D7] text-[#1D1D1F] sticky top-0 z-20">
+    <div class="game-container px-4 py-3 flex items-center justify-between flex-wrap gap-y-2">
+      <div class="flex items-center gap-x-3">
+        <div class="w-10 h-10 bg-[#1D1D1F] rounded-xl flex items-center justify-center">
+          <i class="fa-solid fa-chess-board text-white text-2xl"></i>
         </div>
-
-        <!-- Game Lobby Screen -->
-        <div id="game-lobby-screen" class="hidden">
-            <div class="max-w-md mx-auto">
-                <div class="bg-white rounded-3xl shadow p-6 border border-[#e7d9c9]">
-                    <div class="flex justify-between items-center mb-4">
-                        <div>
-                            <div class="text-sm text-[#854d0e]/70">Room Code</div>
-                            <div id="room-code-display" class="text-4xl font-mono font-bold tracking-[4px]"></div>
-                        </div>
-                        <button onclick="copyRoomCode()" class="px-4 py-2 bg-[#f8f1e9] rounded-2xl text-sm flex items-center gap-x-2">
-                            <i class="fa-solid fa-copy"></i> <span>Copy</span>
-                        </button>
-                    </div>
-
-                    <div class="mb-4">
-                        <div class="text-sm font-semibold mb-2">Players Joined</div>
-                        <div id="lobby-players-list" class="space-y-2"></div>
-                    </div>
-
-                    <div id="start-game-section" class="hidden">
-                        <button onclick="startRemoteGame()" 
-                                class="w-full py-4 bg-[#166534] text-white font-bold rounded-2xl flex items-center justify-center gap-x-3">
-                            <i class="fa-solid fa-play"></i>
-                            <span>Start Game</span>
-                        </button>
-                        <div class="text-center text-xs text-[#854d0e]/60 mt-2">Only the creator can start the game</div>
-                    </div>
-                </div>
-            </div>
+        <div>
+          <h1 class="scrabble-font text-xl">Scrabble</h1>
+          <p id="connection-badge" class="text-[10px] text-[#34C759] font-medium">● connected</p>
         </div>
+      </div>
+      <div id="turn-indicator" class="text-lg font-semibold"></div>
+      <div class="text-xs text-[#8E8E93]">Bag: <span id="bag-count">0</span></div>
+    </div>
+  </div>
 
-        <!-- Actual Game Screen (hidden until game starts) -->
-        <div id="game-screen" class="hidden">
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                
-                <!-- Scores -->
-                <div class="lg:col-span-3 bg-white rounded-3xl shadow border border-[#e7d9c9] p-5 h-fit">
-                    <h3 class="font-semibold text-lg mb-4 flex items-center gap-x-2">
-                        <i class="fa-solid fa-tachometer-alt text-[#854d0e]"></i>
-                        <span>Scores</span>
-                    </h3>
-                    <div id="remote-scores-list" class="space-y-3"></div>
-                </div>
+  <div class="game-container px-4 pt-4">
+    <div id="scoreboard" class="flex flex-wrap gap-2 mb-4"></div>
 
-                <!-- Board -->
-                <div class="lg:col-span-6 flex justify-center">
-                    <div>
-                        <div class="flex justify-between items-end mb-2 px-1">
-                            <div class="text-xs font-medium text-[#854d0e]/70">SCRABBLE BOARD</div>
-                            <div id="current-turn-indicator" class="text-sm font-semibold px-3 py-1 bg-[#fefce8] rounded-full"></div>
-                        </div>
-                        <div id="board-container" class="scrabble-board p-2 rounded-2xl inline-block shadow-2xl">
-                            <div id="remote-board" class="board-grid"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Right Panel: Your Rack + Actions -->
-                <div class="lg:col-span-3 bg-white rounded-3xl shadow border border-[#e7d9c9] p-5 flex flex-col">
-                    <div>
-                        <div class="flex items-center justify-between mb-2">
-                            <div class="font-bold text-xl" id="my-name"></div>
-                            <div class="text-sm text-[#854d0e]/70" id="my-score"></div>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <div class="text-xs font-semibold text-[#854d0e]/80 mb-1.5">YOUR RACK (only you can see this)</div>
-                            <div id="my-rack" class="rack min-h-[58px] flex items-center justify-center gap-x-1.5 p-3 flex-wrap"></div>
-                        </div>
-                    </div>
-
-                    <div class="mt-auto space-y-2.5 pt-4 border-t border-[#e7d9c9]">
-                        <button onclick="playRemoteWord()" 
-                                class="w-full py-3.5 bg-[#166534] hover:bg-[#14532d] text-white font-bold rounded-2xl flex items-center justify-center gap-x-3 disabled:opacity-50"
-                                id="play-btn">
-                            <i class="fa-solid fa-play"></i>
-                            <span>PLAY WORD</span>
-                        </button>
-                        
-                        <div class="grid grid-cols-2 gap-2.5">
-                            <button onclick="recallRemoteTiles()" class="py-2.5 bg-[#f8f1e9] rounded-2xl text-sm font-semibold">Recall</button>
-                            <button onclick="passRemoteTurn()" class="py-2.5 bg-[#f8f1e9] rounded-2xl text-sm font-semibold">Pass Turn</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+    <div class="flex justify-center mb-4 overflow-x-auto">
+      <div class="scrabble-board rounded-2xl">
+        <div id="board-grid" class="board-grid"></div>
+      </div>
     </div>
 
-    <script>
-        // ==================== TAILWIND ====================
-        function initTailwind() {
-            tailwind.config = {
-                theme: { extend: { gridTemplateColumns: { '15': 'repeat(15, minmax(0, 1fr))' } } }
-            };
-        }
+    <div id="my-turn-banner" class="text-center mb-2 font-semibold text-[#0071E3] hidden">Your turn — place your tiles</div>
+    <div id="waiting-banner" class="text-center mb-2 font-semibold text-[#8E8E93]">Waiting for turn...</div>
 
-        // ==================== FIREBASE CONFIG (USER MUST REPLACE) ====================
-        const firebaseConfig = {
-            apiKey: "AIzaSyD8m4FOcKtmwujg9ZY8JPjczBIozuFqfFY",
-            authDomain: "scrabble-multiplayer-e22b8.firebaseapp.com",
-            projectId: "scrabble-multiplayer-e22b8",
-            storageBucket: "scrabble-multiplayer-e22b8.firebasestorage.app",
-            messagingSenderId: "934041735565",
-            appId: "1:934041735565:web:85f15939abde62e31b6dc4"
-        };
+    <div id="rack-wrapper">
+      <div class="rack flex justify-center gap-x-2 flex-wrap" id="rack"></div>
+    </div>
 
-        let app, db, auth;
-        let currentGameId = null;
-        let currentPlayerId = null;
-        let gameUnsubscribe = null;
-        let playerUnsubscribe = null;
+    <div class="flex gap-x-2 mt-4 flex-wrap justify-center">
+      <button onclick="clickPlayWord()" id="btn-play" class="px-6 py-3 bg-[#0071E3] text-white rounded-2xl font-semibold active:scale-[0.98]"><i class="fa-solid fa-play mr-1"></i>Play Word</button>
+      <button onclick="clickRecall()" class="px-6 py-3 bg-[#F5F5F7] text-[#1D1D1F] border border-[#D2D2D7] rounded-2xl font-semibold active:scale-[0.98]"><i class="fa-solid fa-rotate-left mr-1"></i>Recall</button>
+      <button onclick="clickExchange()" class="px-6 py-3 bg-[#F5F5F7] text-[#1D1D1F] border border-[#D2D2D7] rounded-2xl font-semibold active:scale-[0.98]"><i class="fa-solid fa-shuffle mr-1"></i>Exchange</button>
+      <button onclick="clickPass()" class="px-6 py-3 bg-[#F5F5F7] text-[#1D1D1F] border border-[#D2D2D7] rounded-2xl font-semibold active:scale-[0.98]"><i class="fa-solid fa-forward mr-1"></i>Pass</button>
+      <button onclick="shuffleRackOrder()" class="px-6 py-3 bg-white border border-[#D2D2D7] text-[#1D1D1F] rounded-2xl font-semibold active:scale-[0.98]"><i class="fa-solid fa-shuffle mr-1"></i>Shuffle</button>
+    </div>
 
-        function initFirebase() {
-            if (!firebaseConfig.apiKey || firebaseConfig.apiKey === "YOUR_API_KEY") {
-                alert("Please replace the firebaseConfig with your own Firebase project settings first.");
-                return false;
-            }
-            app = firebase.initializeApp(firebaseConfig);
-            db = firebase.firestore();
-            auth = firebase.auth();
-            return true;
-        }
+    <p id="status-line" class="text-center mt-3 text-sm min-h-[20px] font-semibold"></p>
+  </div>
+</div>
 
-        // ==================== GAME STATE (in memory) ====================
-        let board = Array.from({ length: 15 }, () => Array(15).fill(null));
-        let myRack = [];
-        let placementsThisTurn = [];
-        let gameData = null;
+<!-- Blank tile letter picker -->
+<div id="blank-modal" class="hidden fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[200] p-4">
+  <div class="modal bg-white max-w-sm w-full rounded-3xl p-5">
+    <h3 class="font-semibold text-lg mb-3 text-center">Choose letter for blank</h3>
+    <div id="blank-letter-grid" class="grid grid-cols-6 gap-2"></div>
+    <button onclick="closeBlankModal()" class="mt-4 w-full py-2 bg-[#F5F5F7] rounded-xl font-semibold">Cancel</button>
+  </div>
+</div>
 
-        // ==================== UTILS ====================
-        function generateRoomCode() {
-            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-            let code = '';
-            for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
-            return code;
-        }
+<!-- Exchange picker -->
+<div id="exchange-modal" class="hidden fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[200] p-4">
+  <div class="modal bg-white max-w-md w-full rounded-3xl p-5">
+    <h3 class="font-semibold text-lg mb-3 text-center">Select tiles to exchange</h3>
+    <div id="exchange-tile-grid" class="flex flex-wrap gap-2 justify-center mb-4"></div>
+    <div class="flex gap-x-2">
+      <button onclick="confirmExchange()" class="flex-1 py-3 bg-[#0071E3] text-white rounded-2xl font-semibold">Exchange</button>
+      <button onclick="closeExchangeModal()" class="flex-1 py-3 bg-[#F5F5F7] rounded-2xl font-semibold">Cancel</button>
+    </div>
+  </div>
+</div>
 
-        function showScreen(screenId) {
-            document.getElementById('lobby-screen').classList.add('hidden');
-            document.getElementById('game-lobby-screen').classList.add('hidden');
-            document.getElementById('game-screen').classList.add('hidden');
-            document.getElementById(screenId).classList.remove('hidden');
-        }
+<!-- Winner modal -->
+<div id="winner-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[200] p-4">
+  <div class="modal bg-white max-w-sm w-full rounded-3xl p-6 text-center">
+    <i class="fa-solid fa-trophy text-5xl text-[#FF9F0A] mb-3"></i>
+    <h3 class="font-semibold text-2xl mb-2">Game Over</h3>
+    <div id="winner-text" class="text-lg mb-4"></div>
+    <button onclick="document.getElementById('winner-modal').classList.add('hidden')" class="w-full py-3 bg-[#1D1D1F] text-white rounded-2xl font-semibold">Close</button>
+  </div>
+</div>
 
-        // ==================== CREATE GAME ====================
-        async function createGame() {
-            if (!initFirebase()) return;
+<script>
+/* =========================================================================
+   GAME CONSTANTS
+   ========================================================================= */
+const BOARD_SIZE = 15, CENTER = 7, MAX_PLAYERS = 6;
+const LETTER_POINTS_EN = {A:1,B:3,C:3,D:2,E:1,F:4,G:2,H:4,I:1,J:8,K:5,L:1,M:3,N:1,O:1,P:3,Q:10,R:1,S:1,T:1,U:1,V:4,W:4,X:8,Y:4,Z:10,'':0};
+const LETTER_DISTRIBUTION_EN = {A:9,B:2,C:2,D:4,E:12,F:2,G:3,H:2,I:9,J:1,K:1,L:4,M:2,N:6,O:8,P:2,Q:1,R:6,S:4,T:6,U:4,V:2,W:2,X:1,Y:2,Z:1,'':2};
+// Official Afrikaans set: no C, Q, X, Z tiles (blank can stand in for those)
+const LETTER_POINTS_AF = {A:1,B:8,D:1,E:1,F:8,G:2,H:2,I:1,J:10,K:3,L:2,M:4,N:1,O:1,P:5,R:1,S:1,T:1,U:4,V:5,W:3,Y:4,'':0};
+const LETTER_DISTRIBUTION_AF = {A:9,B:1,D:6,E:16,F:1,G:4,H:3,I:8,J:1,K:3,L:3,M:2,N:8,O:6,P:2,R:6,S:6,T:6,U:2,V:2,W:3,Y:2,'':2};
 
-            const name = document.getElementById('player-name').value.trim() || 'Player';
-            const roomCode = generateRoomCode();
+function getLetterSpec(mode){
+  if (mode==='afrikaans') return { points: LETTER_POINTS_AF, dist: LETTER_DISTRIBUTION_AF };
+  if (mode==='both'){
+    const dist = {}, points = {};
+    const letters = new Set([...Object.keys(LETTER_DISTRIBUTION_EN), ...Object.keys(LETTER_DISTRIBUTION_AF)]);
+    letters.forEach(l => {
+      if (l===''){ dist[''] = (LETTER_DISTRIBUTION_EN['']||0) + (LETTER_DISTRIBUTION_AF['']||0); points[''] = 0; return; }
+      dist[l] = (LETTER_DISTRIBUTION_EN[l]||0) + (LETTER_DISTRIBUTION_AF[l]||0);
+      points[l] = LETTER_POINTS_EN[l] !== undefined ? LETTER_POINTS_EN[l] : LETTER_POINTS_AF[l];
+    });
+    return { points, dist };
+  }
+  return { points: LETTER_POINTS_EN, dist: LETTER_DISTRIBUTION_EN };
+}
+const TW_POS = new Set(['0,0','0,7','0,14','7,0','7,14','14,0','14,7','14,14']);
+const DW_POS = new Set(['1,1','1,13','2,2','2,12','3,3','3,11','4,4','4,10','7,7','10,4','10,10','11,3','11,11','12,2','12,12','13,1','13,13']);
+const TL_POS = new Set(['1,5','1,9','5,1','5,5','5,9','5,13','9,1','9,5','9,9','9,13','13,5','13,9']);
+const DL_POS = new Set(['0,3','0,11','2,6','2,8','3,0','3,7','3,14','6,2','6,6','6,8','6,12','7,3','7,11','8,2','8,6','8,8','8,12','11,0','11,7','11,14','12,6','12,8','14,3','14,11']);
+const ENGLISH_WORDS = new Set(['AA','AB','AD','AE','AG','AH','AI','AL','AM','AN','AR','AS','AT','AW','AX','AY','BA','BE','BI','BO','BY','DA','DE','DI','DO','EF','EH','EL','EM','EN','ER','ES','ET','EW','EX','FA','GO','HA','HE','HI','HM','HO','ID','IF','IN','IS','IT','JO','KA','KO','LA','LI','LO','MA','ME','MI','MO','MU','MY','NA','NE','NO','NU','NY','OD','OE','OF','OH','OI','OK','OM','ON','OP','OR','OS','OW','OX','OY','PA','PE','PI','PO','RE','SI','SO','TA','TE','TI','TO','UM','UN','UP','US','UT','WE','WO','XI','YA','YE','YO','THE','AND','FOR','ARE','BUT','NOT','YOU','ALL','CAN','HER','WAS','ONE','OUR','OUT','HAS','HAD','HIS','SHE','ITS','WHO','TWO','MAY','SEE','NOW','WAY','GET','MAN','NEW','OLD','DAY','USE','ANY','HOW']);
+const AFRIKAANS_WORDS = new Set(['EN','IS','DIE','VAN','IN','OP','MET','VIR','AS','MAAR','HY','SY','ONS','JULLE','HULLE','EK','JY','DIT','NIE','JA','NEE','GOED','GROOT','KLEIN','MOOI','LEKKER','HIER','DAAR','NOU','TOE','WEER','AL','ALLES','IETS','NIKS','WAT','WIE','WAAR','WANNEER','HOE','WAAROM','KOM','GAAN','DOEN','WEET','SIEN','HOOR','VOEL','DINK','LOOP','RY','EET','DRINK','SLAAP','WAKKER','LAG','HUIL','SPEEL','WERK','LEES','SKRYF','KOOK','BAAI','KOS','WATER','WYN','KOFFIE','TEE','BROOD','VLEIS','VIS','GROENTE','VRUGTE','HUIS','TUIN','KAR','PAD','BERG','SEE','RIVIER','BOS','VELD','PLAAS']);
+let customWords = new Set();
 
-            try {
-                // Sign in anonymously
-                const userCredential = await auth.signInAnonymously();
-                currentPlayerId = userCredential.user.uid;
+let myClientId = localStorage.getItem('scrabble-clientId') || ('p_' + Math.random().toString(36).slice(2,10));
+localStorage.setItem('scrabble-clientId', myClientId);
 
-                const gameRef = db.collection('games').doc(roomCode);
-                
-                await gameRef.set({
-                    roomCode,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    creatorId: currentPlayerId,
-                    status: 'waiting', // waiting, playing, finished
-                    players: [{
-                        id: currentPlayerId,
-                        name: name,
-                        score: 0,
-                        joinedAt: Date.now()
-                    }],
-                    currentPlayerId: currentPlayerId,
-                    board: null,
-                    bag: null,
-                    lastMove: null
-                });
+/* =========================================================================
+   NETWORKING (PeerJS) — WebRTC data channels, no server
+   ========================================================================= */
+let peer = null;
+let isHost = false;
+let hostConn = null;          // client -> connection to host
+let connections = {};         // host -> {clientId: conn}
+let roomCode = null;
 
-                currentGameId = roomCode;
-                showGameLobby(roomCode);
-                
-            } catch (error) {
-                console.error(error);
-                alert("Failed to create game. Check your Firebase config and internet connection.");
-            }
-        }
+// Authoritative game state — only meaningful/mutated on the host.
+let state = null;
+// Local render copy (what THIS device currently sees — scrubbed of other racks)
+let myRenderState = null;
+// Ephemeral tentative placements for the CURRENT device's own turn (client-local, unsent)
+let placementsThisTurn = [];
+let selectedTileForPlacement = null;
 
-        // ==================== JOIN GAME ====================
-        async function joinGame() {
-            if (!initFirebase()) return;
+function makeRoomCode(){
+  const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // no ambiguous chars
+  let c = ''; for (let i=0;i<4;i++) c += alphabet[Math.floor(Math.random()*alphabet.length)];
+  return c;
+}
 
-            const code = document.getElementById('join-code').value.trim().toUpperCase();
-            if (!code) return alert("Please enter a room code");
+function startHostFlow(){
+  const name = document.getElementById('input-name').value.trim() || 'Player 1';
+  roomCode = makeRoomCode();
+  isHost = true;
+  setHomeStatus('Starting host...');
+  peer = new Peer('scrabblelan-' + roomCode, { debug: 1 });
+  const timeout = setTimeout(() => {
+    if (!peer.open) failToConnect('host');
+  }, 9000);
+  peer.on('open', () => {
+    clearTimeout(timeout);
+    state = {
+      roomCode, started:false,
+      board: Array.from({length:BOARD_SIZE},()=>Array(BOARD_SIZE).fill(null)),
+      bag: [], currentPlayerIndex: 0, consecutivePasses: 0, languageMode: 'english',
+      players: [{ clientId: myClientId, name, rack: [], score: 0, connected: true }],
+      log: []
+    };
+    localStorage.setItem('scrabble-room', roomCode);
+    showLobby();
+  });
+  peer.on('connection', conn => registerIncomingConnection(conn));
+  peer.on('error', err => { clearTimeout(timeout); setHomeStatus(describePeerError(err)); });
+}
 
-            const name = document.getElementById('player-name').value.trim() || 'Player';
+function startJoinFlow(){
+  const name = document.getElementById('input-name').value.trim() || 'Player';
+  const code = document.getElementById('input-roomcode').value.trim().toUpperCase();
+  if (!code) { setHomeStatus('Enter a room code.'); return; }
+  isHost = false;
+  roomCode = code;
+  setHomeStatus('Connecting...');
+  peer = new Peer({ debug: 1 });
+  const timeout = setTimeout(() => {
+    if (!hostConn || !hostConn.open) failToConnect('join');
+  }, 9000);
+  peer.on('open', () => {
+    hostConn = peer.connect('scrabblelan-' + code, { reliable: true });
+    hostConn.on('open', () => {
+      clearTimeout(timeout);
+      hostConn.send({ type:'join', name, clientId: myClientId });
+      localStorage.setItem('scrabble-room', code);
+    });
+    hostConn.on('data', handleClientReceive);
+    hostConn.on('close', () => setStatusLine('Disconnected from host.', true));
+    hostConn.on('error', e => { clearTimeout(timeout); setHomeStatus(describePeerError(e)); });
+  });
+  peer.on('error', err => { clearTimeout(timeout); setHomeStatus(describePeerError(err)); });
+}
 
-            try {
-                const userCredential = await auth.signInAnonymously();
-                currentPlayerId = userCredential.user.uid;
+function failToConnect(kind){
+  try { peer && peer.destroy(); } catch(e){}
+  const action = kind === 'host' ? 'start hosting' : 'reach that room';
+  setHomeStatus(
+    `Couldn't ${action} after 9 seconds. This usually means:\n` +
+    `• This page must be opened directly in Safari — not inside another app's built-in browser/preview (that sandboxes networking).\n` +
+    `• Your iPad needs an internet connection for this one-time step, even though gameplay itself runs over wifi.\n` +
+    `• If using Join: double-check the room code and that the host's game is still open.\n` +
+    `Tap Host/Join again to retry.`
+  );
+}
 
-                const gameRef = db.collection('games').doc(code);
-                const gameSnap = await gameRef.get();
+function describePeerError(err){
+  const type = err && err.type ? err.type : String(err);
+  if (type === 'peer-unavailable') return 'No game found with that room code. Check the code and that the host is still on the lobby/game screen.';
+  if (type === 'network' || type === 'server-error' || type === 'socket-error' || type === 'socket-closed') {
+    return 'Network problem reaching the connection service. Make sure this is open in Safari directly (not an in-app preview) and that you have internet access, then try again.';
+  }
+  if (type === 'browser-incompatible') return 'This browser can\'t make the connection. Please open this page in Safari on the iPad.';
+  if (type === 'unavailable-id') return 'That room code is already taken — try hosting again for a new code.';
+  return 'Connection error (' + type + '). Make sure the page is open directly in Safari and try again.';
+}
 
-                if (!gameSnap.exists) {
-                    return alert("Game not found. Check the code.");
-                }
+function registerIncomingConnection(conn){
+  conn.on('data', data => handleHostReceive(conn, data));
+  conn.on('open', () => {});
+  conn.on('close', () => {
+    const p = state.players.find(pl => pl.clientId === conn._scrabbleClientId);
+    if (p) { p.connected = false; broadcastState(); renderLobbyIfShown(); }
+  });
+}
 
-                const game = gameSnap.data();
-                if (game.status !== 'waiting') {
-                    return alert("This game has already started.");
-                }
+function handleHostReceive(conn, msg){
+  if (msg.type === 'join'){
+    conn._scrabbleClientId = msg.clientId;
+    connections[msg.clientId] = conn;
+    let p = state.players.find(pl => pl.clientId === msg.clientId);
+    if (p){
+      p.connected = true; p.name = msg.name || p.name; // reconnect
+    } else {
+      if (state.started){ conn.send({type:'error', message:'Game already in progress.'}); return; }
+      if (state.players.length >= MAX_PLAYERS){ conn.send({type:'error', message:'Room is full (6 players max).'}); return; }
+      state.players.push({ clientId: msg.clientId, name: msg.name, rack: [], score: 0, connected: true });
+    }
+    conn.send({ type:'joined', clientId: msg.clientId });
+    broadcastState();
+    renderLobbyIfShown();
+    return;
+  }
+  if (msg.type === 'action'){
+    handleAction(msg.clientId || conn._scrabbleClientId, msg.action, msg.payload, conn);
+  }
+}
 
-                // Add player if not already in
-                const alreadyJoined = game.players.some(p => p.id === currentPlayerId);
-                if (!alreadyJoined) {
-                    await gameRef.update({
-                        players: firebase.firestore.FieldValue.arrayUnion({
-                            id: currentPlayerId,
-                            name: name,
-                            score: 0,
-                            joinedAt: Date.now()
-                        })
-                    });
-                }
+function handleClientReceive(msg){
+  if (msg.type === 'error'){ setHomeStatus(msg.message); return; }
+  if (msg.type === 'joined'){ myClientId = msg.clientId; localStorage.setItem('scrabble-clientId', myClientId); return; }
+  if (msg.type === 'state'){ applyIncomingState(msg.state); return; }
+  if (msg.type === 'actionRejected'){ onActionRejected(msg.message); return; }
+}
 
-                currentGameId = code;
-                showGameLobby(code);
+function broadcastState(){
+  Object.values(connections).forEach(conn => {
+    if (conn.open) conn.send({ type:'state', state: stateForRecipient(conn._scrabbleClientId) });
+  });
+  applyIncomingState(stateForRecipient(myClientId)); // host renders its own view too
+  saveHostState();
+}
 
-            } catch (error) {
-                console.error(error);
-                alert("Failed to join game.");
-            }
-        }
+function stateForRecipient(recipientClientId){
+  return {
+    roomCode: state.roomCode, started: state.started, languageMode: state.languageMode,
+    board: state.board, currentPlayerIndex: state.currentPlayerIndex,
+    consecutivePasses: state.consecutivePasses, bagCount: state.bag.length,
+    log: state.log.slice(-5),
+    players: state.players.map(p => p.clientId === recipientClientId
+      ? { ...p }
+      : { clientId:p.clientId, name:p.name, score:p.score, connected:p.connected, rackCount:p.rack.length })
+  };
+}
 
-        function showGameLobby(roomCode) {
-            showScreen('game-lobby-screen');
-            document.getElementById('room-code-display').textContent = roomCode;
+function applyIncomingState(s){
+  myRenderState = s;
+  if (!s.started){ renderLobbyFromState(); return; }
+  placementsThisTurn = placementsThisTurn.filter(pl => myRenderState.board[pl.row][pl.col] === null); // drop stale tentative if board moved on
+  showScreen('game');
+  renderGame();
+}
 
-            // Listen for game updates
-            if (gameUnsubscribe) gameUnsubscribe();
-            gameUnsubscribe = db.collection('games').doc(roomCode).onSnapshot((doc) => {
-                if (!doc.exists) return;
-                const data = doc.data();
-                gameData = data;
+/* =========================================================================
+   ACTIONS — sent by any client, executed ONLY on host
+   ========================================================================= */
+function submitAction(action, payload){
+  if (isHost){ handleAction(myClientId, action, payload); }
+  else { hostConn && hostConn.send({ type:'action', action, payload, clientId: myClientId }); }
+}
 
-                renderLobbyPlayers(data.players || []);
-                
-                // Show start button only for creator
-                const startSection = document.getElementById('start-game-section');
-                if (data.creatorId === currentPlayerId && data.status === 'waiting') {
-                    startSection.classList.remove('hidden');
-                } else {
-                    startSection.classList.add('hidden');
-                }
+async function handleAction(clientId, action, payload, conn){
+  if (!state.started && action !== 'startGame') return;
+  const currentPlayer = state.players[state.currentPlayerIndex];
+  const isTurn = currentPlayer && currentPlayer.clientId === clientId;
 
-                // If game started, switch to game screen
-                if (data.status === 'playing') {
-                    startRemoteGameUI();
-                }
-            });
-        }
+  if (action === 'startGame'){
+    if (clientId !== state.players[0].clientId) return; // only original host starts
+    beginGame();
+    return;
+  }
 
-        function renderLobbyPlayers(players) {
-            const container = document.getElementById('lobby-players-list');
-            container.innerHTML = '';
-            players.forEach(p => {
-                const div = document.createElement('div');
-                div.className = `flex items-center gap-x-3 p-3 rounded-2xl ${p.id === currentPlayerId ? 'bg-[#fefce8]' : 'bg-[#f8f1e9]'}`;
-                div.innerHTML = `
-                    <div class="w-8 h-8 rounded-full bg-[#d4a373] flex items-center justify-center text-white font-bold text-sm">
-                        ${p.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div class="font-medium">${p.name} ${p.id === currentPlayerId ? '(You)' : ''}</div>
-                `;
-                container.appendChild(div);
-            });
-        }
+  if (!isTurn){ sendReject(clientId, conn, "It's not your turn."); return; }
 
-        function copyRoomCode() {
-            const code = document.getElementById('room-code-display').textContent;
-            navigator.clipboard.writeText(code).then(() => {
-                const originalText = event.target.innerHTML;
-                event.target.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
-                setTimeout(() => {
-                    if (event.target) event.target.innerHTML = originalText;
-                }, 1500);
-            });
-        }
+  if (action === 'playWord'){
+    const result = await tryPlayWord(currentPlayer, payload.placements);
+    if (!result.valid){ sendReject(clientId, conn, result.message); return; }
+    broadcastState();
+    checkGameEnd();
+  } else if (action === 'pass'){
+    state.log.push(currentPlayer.name + ' passed.');
+    state.consecutivePasses++;
+    nextTurn();
+    broadcastState();
+    if (state.consecutivePasses >= state.players.length * 2){ endGame(); }
+  } else if (action === 'exchange'){
+    if (state.bag.length < payload.tileIds.length){ sendReject(clientId, conn, 'Not enough tiles left in bag to exchange.'); return; }
+    const rack = currentPlayer.rack;
+    const removed = [];
+    payload.tileIds.forEach(id => {
+      const idx = rack.findIndex(t => t.id === id);
+      if (idx !== -1) removed.push(rack.splice(idx,1)[0]);
+    });
+    const drawn = state.bag.splice(0, removed.length);
+    rack.push(...drawn);
+    state.bag.push(...removed);
+    shuffleArray(state.bag);
+    state.log.push(currentPlayer.name + ' exchanged ' + removed.length + ' tile(s).');
+    state.consecutivePasses = 0;
+    nextTurn();
+    broadcastState();
+  }
+}
 
-        // ==================== START GAME ====================
-        async function startRemoteGame() {
-            if (!currentGameId) return;
+function sendReject(clientId, conn, message){
+  if (clientId === myClientId){ onActionRejected(message); return; }
+  const c = connections[clientId];
+  if (c && c.open) c.send({ type:'actionRejected', message });
+}
 
-            const gameRef = db.collection('games').doc(currentGameId);
-            
-            // Initialize full game state
-            const initialBoard = Array.from({ length: 15 }, () => Array(15).fill(null));
-            const initialBag = createBag(); // reuse your existing createBag
-            const numPlayers = gameData.players.length;
-            
-            // Deal initial racks (private per player)
-            const playerRacks = {};
-            gameData.players.forEach((player, idx) => {
-                playerRacks[player.id] = initialBag.splice(0, 7);
-            });
-            
-            await gameRef.update({
-                status: 'playing',
-                startedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                board: initialBoard,
-                bag: initialBag,
-                currentPlayerId: gameData.players[0].id,
-                playerRacks: playerRacks,
-                lastMove: null
-            });
-        }
+function onActionRejected(message){
+  setStatusLine(message, true);
+}
 
-        function startRemoteGameUI() {
-            showScreen('game-screen');
-            
-            // TODO: Full implementation will go here:
-            // - Listen to game document for board, scores, current turn
-            // - Render board
-            // - Show only current player's rack (private)
-            // - Enable drag & drop only for current player
-            // - Sync moves to Firestore
-            
-            document.getElementById('my-name').textContent = gameData.players.find(p => p.id === currentPlayerId)?.name || 'You';
-            
-            // Placeholder - full game logic coming next
-            alert("Multiplayer game started! Full real-time sync, private racks, and turn system will be added in the next update.");
-        }
+function nextTurn(){
+  state.currentPlayerIndex = (state.currentPlayerIndex + 1) % state.players.length;
+}
 
-        // Placeholder functions for gameplay (will be fully implemented)
-        function playRemoteWord() { alert("Play word logic coming soon"); }
-        function recallRemoteTiles() { alert("Recall coming soon"); }
-        function passRemoteTurn() { alert("Pass turn coming soon"); }
+function beginGame(){
+  state.bag = createBag(state.languageMode);
+  state.players.forEach(p => { p.rack = state.bag.splice(0, 7); p.score = 0; });
+  state.currentPlayerIndex = Math.floor(Math.random() * state.players.length);
+  state.started = true;
+  state.log = ['Game started!'];
+  broadcastState();
+}
 
-        // ==================== INIT ====================
-        function init() {
-            initTailwind();
-            
-            // Show lobby by default
-            showScreen('lobby-screen');
+/* =========================================================================
+   CORE SCRABBLE LOGIC (runs on host only, against authoritative `state`)
+   ========================================================================= */
+function createTile(letter, isBlank, pointsMap){
+  pointsMap = pointsMap || LETTER_POINTS_EN;
+  return { id:'t_'+Math.random().toString(36).slice(2,10), letter, points: pointsMap[letter]||0, isBlank: !!isBlank };
+}
+function createBag(mode){
+  const spec = getLetterSpec(mode);
+  let b = [];
+  for (const [letter,count] of Object.entries(spec.dist)) for (let i=0;i<count;i++) b.push(createTile(letter, letter==='', spec.points));
+  return shuffleArray(b);
+}
+function shuffleArray(arr){ for (let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } return arr; }
+function getPremium(row,col){
+  const key = row+','+col;
+  if (row===CENTER && col===CENTER) return 'CENTER';
+  if (TW_POS.has(key)) return 'TW'; if (DW_POS.has(key)) return 'DW';
+  if (TL_POS.has(key)) return 'TL'; if (DL_POS.has(key)) return 'DL';
+  return null;
+}
 
-            // Pre-fill name from previous use if available
-            const savedName = localStorage.getItem('scrabble-player-name');
-            if (savedName) document.getElementById('player-name').value = savedName;
+async function isWordValid(word, lang){
+  word = word.toUpperCase().trim();
+  lang = lang || 'english';
+  if (customWords.has(word)) return true;
+  const checkEnglish = lang==='english' || lang==='both';
+  const checkAfrikaans = lang==='afrikaans' || lang==='both';
+  if (checkEnglish && ENGLISH_WORDS.has(word)) return true;
+  if (checkAfrikaans && AFRIKAANS_WORDS.has(word)) return true;
+  if (checkEnglish){
+    try {
+      const controller = new AbortController();
+      const t = setTimeout(()=>controller.abort(), 3000);
+      const res = await fetch('https://api.dictionaryapi.dev/api/v2/entries/en/'+word.toLowerCase(), { signal: controller.signal });
+      clearTimeout(t);
+      if (res.ok) return true;
+    } catch(e){}
+  }
+  return false;
+}
 
-            document.getElementById('player-name').addEventListener('blur', () => {
-                localStorage.setItem('scrabble-player-name', document.getElementById('player-name').value);
-            });
+function getFormedWords(board, placements){
+  const words = [];
+  const positions = placements.map(p=>({row:p.row,col:p.col}));
+  const isHorizontal = new Set(positions.map(p=>p.row)).size === 1;
+  let main = [];
+  if (isHorizontal){
+    const row = positions[0].row;
+    let sc = Math.min(...positions.map(p=>p.col)), ec = Math.max(...positions.map(p=>p.col));
+    while (sc>0 && board[row][sc-1]) sc--;
+    while (ec<BOARD_SIZE-1 && board[row][ec+1]) ec++;
+    for (let c=sc;c<=ec;c++) if (board[row][c]) main.push({row,col:c,isNew:positions.some(p=>p.row===row&&p.col===c)});
+  } else {
+    const col = positions[0].col;
+    let sr = Math.min(...positions.map(p=>p.row)), er = Math.max(...positions.map(p=>p.row));
+    while (sr>0 && board[sr-1][col]) sr--;
+    while (er<BOARD_SIZE-1 && board[er+1][col]) er++;
+    for (let r=sr;r<=er;r++) if (board[r][col]) main.push({row:r,col,isNew:positions.some(p=>p.row===r&&p.col===col)});
+  }
+  if (main.length>=2) words.push({positions:main});
+  positions.forEach(pos=>{
+    if (isHorizontal){
+      let sr=pos.row, er=pos.row;
+      while (sr>0 && board[sr-1][pos.col]) sr--;
+      while (er<BOARD_SIZE-1 && board[er+1][pos.col]) er++;
+      if (sr!==er){ let cross=[]; for (let r=sr;r<=er;r++) if (board[r][pos.col]) cross.push({row:r,col:pos.col,isNew:r===pos.row}); if (cross.length>=2) words.push({positions:cross}); }
+    } else {
+      let sc=pos.col, ec=pos.col;
+      while (sc>0 && board[pos.row][sc-1]) sc--;
+      while (ec<BOARD_SIZE-1 && board[pos.row][ec+1]) ec++;
+      if (sc!==ec){ let cross=[]; for (let c=sc;c<=ec;c++) if (board[pos.row][c]) cross.push({row:pos.row,col:c,isNew:c===pos.col}); if (cross.length>=2) words.push({positions:cross}); }
+    }
+  });
+  return words;
+}
 
-            console.log('%c[Scrabble Multiplayer] Ready. Replace firebaseConfig with your project settings.', 'color:#854d0e');
-        }
+function wordString(board, wordPositions){
+  return wordPositions.map(p => (board[p.row][p.col].playedAs || board[p.row][p.col].letter)).join('').toUpperCase();
+}
 
-        window.onload = init;
-    </script>
+function calcScore(board, placements){
+  let total = 0; const bingo = placements.length === 7;
+  getFormedWords(board, placements).forEach(w => {
+    let ws=0, mult=1;
+    w.positions.forEach(({row,col,isNew})=>{
+      const tile = board[row][col]; let ls = tile.points;
+      if (isNew){
+        const prem = getPremium(row,col);
+        if (prem==='DL') ls*=2; if (prem==='TL') ls*=3;
+        if (prem==='DW') mult*=2; if (prem==='TW') mult*=3; if (prem==='CENTER') mult*=2;
+      }
+      ws += ls;
+    });
+    total += ws*mult;
+  });
+  if (bingo) total += 50;
+  return total;
+}
+
+async function tryPlayWord(player, placements){
+  if (!placements || placements.length===0) return {valid:false, message:'No tiles placed.'};
+  // Resolve rack tiles + remove from rack, place onto board (staged; rolled back if invalid)
+  const staged = [];
+  for (const pl of placements){
+    const idx = player.rack.findIndex(t => t.id === pl.tileId);
+    if (idx === -1) return {valid:false, message:'Tile not found in rack.'};
+    const tile = { ...player.rack[idx] };
+    if (tile.isBlank){ tile.playedAs = (pl.playedAs||'A').toUpperCase(); tile.letter = tile.playedAs; tile.points = 0; }
+    if (state.board[pl.row][pl.col]) return {valid:false, message:'Square already occupied.'};
+    staged.push({ row: pl.row, col: pl.col, tile, rackIdx: idx });
+  }
+  // place staged tiles temporarily
+  staged.forEach(s => { state.board[s.row][s.col] = s.tile; });
+
+  const validation = validatePlacement(state.board, staged);
+  if (!validation.valid){
+    staged.forEach(s => { state.board[s.row][s.col] = null; });
+    return validation;
+  }
+
+  // dictionary check
+  const formed = getFormedWords(state.board, staged);
+  for (const w of formed){
+    if (w.positions.length < 2) continue;
+    const ws = wordString(state.board, w.positions);
+    const ok = await isWordValid(ws, state.languageMode);
+    if (!ok){
+      staged.forEach(s => { state.board[s.row][s.col] = null; });
+      return { valid:false, message: '"'+ws+'" is not a recognized word.' };
+    }
+  }
+
+  // commit: remove tiles from rack (sort indices desc to splice safely)
+  staged.sort((a,b)=>b.rackIdx-a.rackIdx).forEach(s => player.rack.splice(s.rackIdx,1));
+  const score = calcScore(state.board, staged);
+  player.score += score;
+  const mainWord = formed.reduce((best,w)=> w.positions.length>(best?best.positions.length:0) ? w : best, null);
+  state.log.push(player.name + ' played "' + (mainWord?wordString(state.board,mainWord.positions):'') + '" for ' + score + ' pts');
+
+  const need = 7 - player.rack.length;
+  if (need>0 && state.bag.length>0) player.rack.push(...state.bag.splice(0, Math.min(need, state.bag.length)));
+
+  state.consecutivePasses = 0;
+  nextTurn();
+  return { valid:true, score };
+}
+
+function validatePlacement(board, staged){
+  const positions = staged.map(s=>({row:s.row,col:s.col}));
+  const rows = new Set(positions.map(p=>p.row)), cols = new Set(positions.map(p=>p.col));
+  const isH = rows.size===1, isV = cols.size===1;
+  if (positions.length>1 && !isH && !isV) return {valid:false, message:'Tiles must be in a straight line.'};
+  if (isH){
+    const row=positions[0].row, minC=Math.min(...positions.map(p=>p.col)), maxC=Math.max(...positions.map(p=>p.col));
+    for (let c=minC;c<=maxC;c++) if (!board[row][c]) return {valid:false, message:'Gaps are not allowed.'};
+  } else if (isV) {
+    const col=positions[0].col, minR=Math.min(...positions.map(p=>p.row)), maxR=Math.max(...positions.map(p=>p.row));
+    for (let r=minR;r<=maxR;r++) if (!board[r][col]) return {valid:false, message:'Gaps are not allowed.'};
+  }
+  const boardWasEmpty = board.flat().filter(c=>c!==null).length === staged.length;
+  if (boardWasEmpty){
+    if (!positions.some(p=>p.row===CENTER&&p.col===CENTER)) return {valid:false, message:'First move must cover the center ★.'};
+  } else {
+    let connects=false;
+    for (const pos of positions){
+      for (const [dr,dc] of [[-1,0],[1,0],[0,-1],[0,1]]){
+        const nr=pos.row+dr, nc=pos.col+dc;
+        if (nr>=0&&nr<BOARD_SIZE&&nc>=0&&nc<BOARD_SIZE&&board[nr][nc]&&!positions.some(p=>p.row===nr&&p.col===nc)) connects=true;
+      }
+    }
+    if (!connects) return {valid:false, message:'Must connect to existing tiles.'};
+  }
+  return {valid:true};
+}
+
+function checkGameEnd(){
+  const empty = state.players.find(p => p.rack.length===0);
+  if (state.bag.length===0 && empty) endGame();
+}
+function endGame(){
+  const winner = [...state.players].sort((a,b)=>b.score-a.score)[0];
+  state.log.push('Game over. ' + winner.name + ' wins with ' + winner.score + '!');
+  state.started = false; // freeze board
+  broadcastState();
+}
+
+/* =========================================================================
+   HOST persistence (basic resume-if-refreshed support)
+   ========================================================================= */
+function saveHostState(){ if (isHost) try{ localStorage.setItem('scrabble-hoststate', JSON.stringify(state)); }catch(e){} }
+
+/* =========================================================================
+   UI: HOME / LOBBY
+   ========================================================================= */
+function setHomeStatus(t){ document.getElementById('home-status').textContent = t; }
+function setStatusLine(t, isError){ const el=document.getElementById('status-line'); el.textContent=t; el.style.color = isError ? '#FF3B30' : '#0071E3'; }
+function showScreen(name){
+  ['home','lobby','game'].forEach(s => document.getElementById('screen-'+s).classList.toggle('hidden', s!==name));
+}
+function showLobby(){ showScreen('lobby'); document.getElementById('lobby-roomcode').textContent = roomCode; renderLobbyFromState(); }
+function renderLobbyIfShown(){ if (!document.getElementById('screen-lobby').classList.contains('hidden')) renderLobbyFromState(); }
+
+function renderLobbyFromState(){
+  const src = isHost ? state : myRenderState;
+  if (!src) return;
+  document.getElementById('lobby-roomcode').textContent = src.roomCode || roomCode;
+
+  const langWrap = document.getElementById('lobby-language');
+  const langs = [['english','English'],['afrikaans','Afrikaans'],['both','Both']];
+  langWrap.innerHTML = langs.map(([val,label]) => `
+    <button ${isHost?`onclick="setLanguageMode('${val}')"`:'disabled'}
+      class="flex-1 py-2 rounded-xl font-semibold text-sm border ${src.languageMode===val ? 'bg-[#0071E3] text-white border-[#0071E3]' : 'bg-white text-[#1D1D1F] border-[#D2D2D7]'} ${isHost?'':'opacity-70'}">
+      ${label}
+    </button>`).join('');
+
+  const wrap = document.getElementById('lobby-players');
+  wrap.innerHTML = src.players.map(p => `
+    <div class="flex items-center justify-between bg-[#F5F5F7] rounded-xl px-3 py-2">
+      <span class="font-semibold">${escapeHtml(p.name)}</span>
+      <span class="text-xs ${p.connected!==false ? 'text-[#34C759]' : 'text-[#FF3B30]'}">${p.connected!==false ? '● online' : '○ offline'}</span>
+    </div>`).join('');
+  const btn = document.getElementById('btn-start-game');
+  if (isHost){
+    btn.classList.remove('hidden');
+    btn.disabled = src.players.length < 2;
+    document.getElementById('lobby-note').textContent = src.players.length < 2 ? 'Need at least 2 players to start.' : 'Ready — ' + src.players.length + ' players.';
+  } else {
+    btn.classList.add('hidden');
+    document.getElementById('lobby-note').textContent = 'Waiting for host to start the game...';
+  }
+}
+function hostStartGame(){ submitAction('startGame'); }
+function setLanguageMode(mode){
+  if (!isHost) return;
+  state.languageMode = mode;
+  broadcastState();
+}
+
+/* =========================================================================
+   UI: GAME
+   ========================================================================= */
+function renderGame(){
+  const s = myRenderState;
+  document.getElementById('bag-count').textContent = s.bagCount;
+  const me = s.players.find(p=>p.clientId===myClientId);
+  const current = s.players[s.currentPlayerIndex];
+  const myTurn = current && current.clientId === myClientId;
+
+  document.getElementById('turn-indicator').textContent = current ? (myTurn ? 'Your turn' : current.name + "'s turn") : '';
+  document.getElementById('my-turn-banner').classList.toggle('hidden', !myTurn);
+  document.getElementById('waiting-banner').classList.toggle('hidden', myTurn);
+  document.getElementById('rack-wrapper').classList.toggle('disabled-overlay', !myTurn);
+  ['btn-play'].forEach(id=>{}); // buttons are visually disabled via overlay class on rack-wrapper only; actions also enforce turn.
+
+  // scoreboard
+  document.getElementById('scoreboard').innerHTML = s.players.map(p => `
+    <div class="score-badge rounded-xl px-3 py-2 text-sm ${p.clientId===current?.clientId ? 'ring-2 ring-[#0071E3]' : ''}">
+      <div class="font-bold">${escapeHtml(p.name)} ${p.clientId===myClientId?'(you)':''}</div>
+      <div>${p.score} pts ${p.connected===false?'<span class=\"text-[#FF3B30]\">· offline</span>':''}</div>
+    </div>`).join('');
+
+  renderBoard(s.board);
+  renderRack(me);
+
+  if (s.log && s.log.length) setStatusLine(s.log[s.log.length-1], false);
+  if (!s.started){
+    const winner = [...s.players].sort((a,b)=>b.score-a.score)[0];
+    document.getElementById('winner-text').textContent = winner.name + ' wins with ' + winner.score + ' points!';
+    document.getElementById('winner-modal').classList.remove('hidden');
+  }
+}
+
+function renderBoard(board){
+  const grid = document.getElementById('board-grid');
+  grid.innerHTML = '';
+  for (let r=0;r<BOARD_SIZE;r++){
+    for (let c=0;c<BOARD_SIZE;c++){
+      const cell = document.createElement('div');
+      const tempIdx = placementsThisTurn.findIndex(p=>p.row===r&&p.col===c);
+      const tile = board[r][c] || (tempIdx!==-1 ? placementsThisTurn[tempIdx].tile : null);
+      const premium = getPremium(r,c);
+      cell.className = 'board-cell flex items-center justify-center rounded-sm ' + (premium ? getPremiumClass(premium) : 'bg-[#FBFBFD]');
+      cell.onclick = () => handleBoardClick(r,c);
+      if (tile){
+        const tEl = document.createElement('div');
+        tEl.className = 'tile' + (tile.isBlank?' blank':'') + (tempIdx!==-1?' temp':'');
+        tEl.innerHTML = `${tile.playedAs||tile.letter}<span class="pt">${tile.points}</span>`;
+        cell.appendChild(tEl);
+      } else if (premium){
+        cell.textContent = premium==='CENTER' ? '★' : premium;
+      }
+      grid.appendChild(cell);
+    }
+  }
+}
+function getPremiumClass(p){ return p==='TW'?'premium-tw':p==='DW'?'premium-dw':p==='TL'?'premium-tl':p==='DL'?'premium-dl':'premium-center'; }
+
+function renderRack(me){
+  const rack = document.getElementById('rack');
+  rack.innerHTML = '';
+  if (!me) return;
+  const placedIds = new Set(placementsThisTurn.map(p=>p.tile.id));
+  me.rack.filter(t=>!placedIds.has(t.id)).forEach(tile => {
+    const el = document.createElement('div');
+    el.className = 'tile rack-size' + (tile.isBlank?' blank':'') + (selectedTileForPlacement&&selectedTileForPlacement.id===tile.id?' selected':'');
+    el.innerHTML = `${tile.letter}<span class="pt">${tile.points}</span>`;
+    el.onclick = () => selectTile(tile);
+    rack.appendChild(el);
+  });
+}
+
+function selectTile(tile){
+  selectedTileForPlacement = (selectedTileForPlacement && selectedTileForPlacement.id===tile.id) ? null : tile;
+  renderGame();
+}
+
+function handleBoardClick(row,col){
+  const current = myRenderState.players[myRenderState.currentPlayerIndex];
+  if (!current || current.clientId !== myClientId) return;
+  if (myRenderState.board[row][col]) return; // occupied by committed tile
+  const tempIdx = placementsThisTurn.findIndex(p=>p.row===row&&p.col===col);
+  if (tempIdx!==-1 && !selectedTileForPlacement){
+    // return tile to rack
+    placementsThisTurn.splice(tempIdx,1);
+    renderGame();
+    return;
+  }
+  if (!selectedTileForPlacement || tempIdx!==-1) return;
+  const tile = selectedTileForPlacement;
+  if (tile.isBlank){
+    showBlankModal(letter => {
+      if (!letter) return;
+      placementsThisTurn.push({ row, col, tile: { ...tile, playedAs:letter.toUpperCase(), letter:letter.toUpperCase() } });
+      selectedTileForPlacement = null;
+      renderGame();
+    });
+  } else {
+    placementsThisTurn.push({ row, col, tile });
+    selectedTileForPlacement = null;
+    renderGame();
+  }
+}
+
+function clickRecall(){ placementsThisTurn = []; selectedTileForPlacement = null; renderGame(); }
+
+function clickPlayWord(){
+  if (placementsThisTurn.length===0){ setStatusLine('Place some tiles first.', true); return; }
+  const payload = { placements: placementsThisTurn.map(p => ({ row:p.row, col:p.col, tileId:p.tile.id, playedAs:p.tile.playedAs })) };
+  submitAction('playWord', payload);
+  placementsThisTurn = []; // optimistic clear; host state will confirm/correct via broadcast
+}
+
+function clickPass(){
+  if (placementsThisTurn.length>0 && !confirm('Recall placed tiles and pass?')) return;
+  placementsThisTurn = [];
+  submitAction('pass');
+}
+
+let exchangeSelection = new Set();
+function clickExchange(){
+  const me = myRenderState.players.find(p=>p.clientId===myClientId);
+  if (!me) return;
+  exchangeSelection = new Set();
+  const grid = document.getElementById('exchange-tile-grid');
+  grid.innerHTML = '';
+  me.rack.forEach(tile => {
+    const el = document.createElement('div');
+    el.className = 'tile rack-size' + (tile.isBlank?' blank':'');
+    el.innerHTML = `${tile.letter}<span class="pt">${tile.points}</span>`;
+    el.onclick = () => { el.classList.toggle('selected'); if (exchangeSelection.has(tile.id)) exchangeSelection.delete(tile.id); else exchangeSelection.add(tile.id); };
+    grid.appendChild(el);
+  });
+  document.getElementById('exchange-modal').classList.remove('hidden');
+}
+function confirmExchange(){
+  if (exchangeSelection.size===0){ closeExchangeModal(); return; }
+  submitAction('exchange', { tileIds: Array.from(exchangeSelection) });
+  closeExchangeModal();
+}
+function closeExchangeModal(){ document.getElementById('exchange-modal').classList.add('hidden'); }
+
+function shuffleRackOrder(){
+  const me = myRenderState.players.find(p=>p.clientId===myClientId);
+  if (me) shuffleArray(me.rack);
+  renderGame();
+}
+
+let blankCallback = null;
+function showBlankModal(cb){
+  blankCallback = cb;
+  const mode = myRenderState ? myRenderState.languageMode : 'english';
+  const excluded = mode==='afrikaans' ? new Set(['C','Q','X','Z']) : new Set();
+  const grid = document.getElementById('blank-letter-grid');
+  grid.innerHTML = '';
+  for (let i=65;i<=90;i++){
+    const letter = String.fromCharCode(i);
+    if (excluded.has(letter)) continue;
+    const btn = document.createElement('button');
+    btn.className = 'aspect-square flex items-center justify-center text-lg font-bold bg-[#F5F5F7] active:bg-[#E5E5EA] rounded-xl border border-[#D2D2D7]';
+    btn.textContent = letter;
+    btn.onclick = () => { document.getElementById('blank-modal').classList.add('hidden'); const c=blankCallback; blankCallback=null; if (c) c(letter); };
+    grid.appendChild(btn);
+  }
+  document.getElementById('blank-modal').classList.remove('hidden');
+}
+function closeBlankModal(){ document.getElementById('blank-modal').classList.add('hidden'); if (blankCallback){ const c=blankCallback; blankCallback=null; c(null); } }
+
+function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+document.getElementById('input-roomcode').addEventListener('input', e => { e.target.value = e.target.value.toUpperCase(); });
+</script>
 </body>
 </html>
