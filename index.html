@@ -25,20 +25,55 @@
 h1,h3,p{ font-size:1em; margin:0; }
 body{ background:var(--apple-gray-bg); color:var(--apple-ink); -webkit-font-smoothing:antialiased; }
 .scrabble-font{ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display',system-ui,sans-serif; font-weight:700; letter-spacing:-0.02em; }
-.scrabble-board{ background:#FBFBFD; border:1px solid var(--apple-gray-line); box-shadow:0 20px 40px -12px rgba(0,0,0,.15); }
-.board-cell{ width:var(--tile-size); height:var(--tile-size); font-size:9px; user-select:none; position:relative; transition:filter .1s, transform .1s; }
-.board-cell:hover{ filter:brightness(1.03); }
-.premium-tw{ background:var(--apple-red); color:#fff; } .premium-dw{ background:#FFE1E8; color:#D70015; }
-.premium-tl{ background:var(--apple-blue); color:#fff; } .premium-dl{ background:#D6ECFF; color:var(--apple-blue-dark); }
-.premium-center{ background:linear-gradient(135deg,var(--apple-orange),#FFB84D); color:#fff; }
-.tile{ width:var(--tile-size); height:var(--tile-size); background:#F5EFE0; border:1px solid var(--apple-gray-line); box-shadow:0 1px 3px rgba(0,0,0,.08); border-radius:8px; display:flex; align-items:center; justify-content:center; font-weight:600; color:var(--apple-ink); font-size:20px; position:relative; cursor:grab; user-select:none; touch-action:none; transition:transform .1s; }
-.tile.rack-size{ width:var(--rack-tile-size); height:var(--rack-tile-size); font-size:28px; }
-.tile .pt{ position:absolute; bottom:2px; right:4px; font-size:8px; font-weight:600; color:var(--apple-ink-secondary); }
-.tile.blank{ background:#F5E6FF; border-color:#AF52DE; color:#8E28B8; }
-.tile.selected{ box-shadow:0 0 0 3px var(--apple-blue), 0 4px 10px rgba(0,113,227,.25); transform:translateY(-3px); }
-.tile.temp{ box-shadow:0 0 0 3px var(--apple-orange), 0 4px 10px rgba(0,0,0,.15); z-index:10; }
-.tile.last-word{ box-shadow:0 0 0 3px var(--apple-green), 0 4px 10px rgba(52,199,89,.3); z-index:5; }
-.rack{ background:#FFFFFF; border:1px solid var(--apple-gray-line); padding:10px; border-radius:16px; box-shadow:0 1px 2px rgba(0,0,0,.05); }
+
+/* Board frame: a shallow tray with light falling from above */
+.scrabble-board{ background:linear-gradient(180deg,#FFFFFF,#F2F2F5); border:1px solid var(--apple-gray-line); box-shadow:0 24px 48px -16px rgba(29,29,31,.22), 0 2px 6px rgba(29,29,31,.06), inset 0 1px 0 rgba(255,255,255,.9); }
+.board-cell{ width:var(--tile-size); height:var(--tile-size); font-size:8px; font-weight:600; letter-spacing:.04em; user-select:none; position:relative; transition:filter .12s; border-radius:5px; }
+.board-cell:hover{ filter:brightness(1.05); }
+.cell-plain{ background:linear-gradient(180deg,#FAFAFC,#F2F2F5); box-shadow:inset 0 1px 2px rgba(29,29,31,.05); }
+#play-history{ background:linear-gradient(180deg,#FFFFFF,#FAFAFC); border:1px solid var(--apple-gray-line); border-radius:14px; padding:10px 12px; box-shadow:0 1px 2px rgba(29,29,31,.05), inset 0 1px 0 rgba(255,255,255,.9); }
+#turn-indicator:not(:empty){ align-self:center; background:linear-gradient(180deg,#FFFFFF,#F7F7FA); border:1px solid var(--apple-gray-line); border-radius:999px; padding:4px 16px; box-shadow:0 1px 2px rgba(29,29,31,.06); }
+
+/* Premium squares: tinted-glass chips instead of solid blocks */
+.premium-tw{ background:linear-gradient(180deg,#FF6B61,#F5372A); color:#fff; box-shadow:inset 0 1px 0 rgba(255,255,255,.35), inset 0 -1px 2px rgba(0,0,0,.12); }
+.premium-dw{ background:linear-gradient(180deg,#FFE9EE,#FFD4DE); color:#C4183C; box-shadow:inset 0 1px 0 rgba(255,255,255,.7), inset 0 -1px 2px rgba(196,24,60,.08); }
+.premium-tl{ background:linear-gradient(180deg,#3D96F2,#0071E3); color:#fff; box-shadow:inset 0 1px 0 rgba(255,255,255,.35), inset 0 -1px 2px rgba(0,0,0,.12); }
+.premium-dl{ background:linear-gradient(180deg,#E4F1FF,#CBE4FF); color:#0059B3; box-shadow:inset 0 1px 0 rgba(255,255,255,.7), inset 0 -1px 2px rgba(0,89,179,.08); }
+.premium-center{ background:linear-gradient(160deg,#FFC24D,#FF9500); color:#fff; font-size:15px; box-shadow:inset 0 1px 0 rgba(255,255,255,.45), inset 0 -1px 2px rgba(0,0,0,.12); }
+
+/* Tiles: the signature element — ivory pieces with real thickness and letterpress letters */
+.tile{
+  width:var(--tile-size); height:var(--tile-size);
+  background:linear-gradient(180deg,#FCF8EE 0%,#F3EBD8 78%,#E9DFC6 100%);
+  border:1px solid #D8CDB2;
+  border-radius:9px;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.85),
+    0 2px 0 #D3C7AB,
+    0 3px 6px rgba(29,29,31,.18);
+  display:flex; align-items:center; justify-content:center;
+  font-weight:700; color:#3A3325; font-size:20px;
+  text-shadow:0 1px 0 rgba(255,255,255,.55);
+  position:relative; cursor:grab; user-select:none; touch-action:none;
+  transition:transform .12s ease, box-shadow .12s ease;
+}
+.tile.rack-size{ width:var(--rack-tile-size); height:var(--rack-tile-size); font-size:28px; border-radius:12px; }
+.tile.rack-size:hover{ transform:translateY(-2px); box-shadow:inset 0 1px 0 rgba(255,255,255,.85), 0 3px 0 #D3C7AB, 0 8px 14px rgba(29,29,31,.2); }
+.tile .pt{ position:absolute; bottom:3px; right:5px; font-size:8px; font-weight:700; color:#8A7D5E; text-shadow:none; }
+
+/* Joker: amethyst piece, unmistakable at a glance */
+.tile.blank{ background:linear-gradient(180deg,#F8EDFF 0%,#EBD6FA 78%,#DFC2F4 100%); border-color:#C08BE0; color:#7A1FA8; box-shadow:inset 0 1px 0 rgba(255,255,255,.85), 0 2px 0 #C79BE2, 0 3px 6px rgba(122,31,168,.2); }
+.tile.blank .pt{ color:#A363C7; }
+
+.tile.selected{ box-shadow:0 0 0 3px var(--apple-blue), inset 0 1px 0 rgba(255,255,255,.85), 0 2px 0 #D3C7AB, 0 8px 16px rgba(0,113,227,.3); transform:translateY(-4px); }
+.tile.temp{ box-shadow:0 0 0 3px var(--apple-orange), inset 0 1px 0 rgba(255,255,255,.85), 0 2px 0 #D3C7AB, 0 4px 10px rgba(0,0,0,.16); z-index:10; animation:tilePop .18s ease-out; }
+.tile.last-word{ box-shadow:0 0 0 3px var(--apple-green), inset 0 1px 0 rgba(255,255,255,.85), 0 2px 0 #D3C7AB, 0 4px 10px rgba(52,199,89,.32); z-index:5; animation:lastWordGlow 1.2s ease-out 1; }
+@keyframes tilePop{ from{ transform:scale(.85); } 60%{ transform:scale(1.06); } to{ transform:scale(1); } }
+@keyframes lastWordGlow{ 0%{ box-shadow:0 0 0 6px rgba(52,199,89,.55), 0 4px 14px rgba(52,199,89,.5); } 100%{ box-shadow:0 0 0 3px var(--apple-green), inset 0 1px 0 rgba(255,255,255,.85), 0 2px 0 #D3C7AB, 0 4px 10px rgba(52,199,89,.32); } }
+
+/* Rack: a recessed tray with a lip, so tiles look like they sit IN something */
+.rack{ background:linear-gradient(180deg,#E8E8ED,#F4F4F7); border:1px solid var(--apple-gray-line); padding:12px 10px 10px; border-radius:18px; box-shadow:inset 0 2px 6px rgba(29,29,31,.1), inset 0 -1px 0 rgba(255,255,255,.9), 0 1px 2px rgba(255,255,255,.6); min-height:calc(var(--rack-tile-size) + 22px); }
+
 /* Game screen: board fixed on the left, everything else on the right, no page scroll */
 #screen-game{ height:100vh; height:100dvh; overflow:hidden; }
 .game-layout{ height:100%; display:flex; flex-direction:row; align-items:stretch; }
@@ -53,10 +88,13 @@ body{ background:var(--apple-gray-bg); color:var(--apple-ink); -webkit-font-smoo
   #board-pane{ padding:8px; }
   #right-pane{ height:auto; overflow-y:visible; padding:8px 16px 24px; justify-content:flex-start; }
 }
-.board-grid{ display:grid; grid-template-columns:repeat(15,var(--tile-size)); gap:2px; padding:6px; background:var(--apple-gray-line); border-radius:8px; }
-.score-badge{ background:#FFFFFF; border:1px solid var(--apple-gray-line); color:var(--apple-ink); box-shadow:0 1px 2px rgba(0,0,0,.05); }
+.board-grid{ display:grid; grid-template-columns:repeat(15,var(--tile-size)); gap:2px; padding:8px; background:linear-gradient(180deg,#C9C9CF,#D6D6DB); border-radius:12px; box-shadow:inset 0 2px 5px rgba(29,29,31,.18), inset 0 -1px 0 rgba(255,255,255,.55); }
+.score-badge{ background:linear-gradient(180deg,#FFFFFF,#F7F7FA); border:1px solid var(--apple-gray-line); color:var(--apple-ink); box-shadow:0 1px 2px rgba(29,29,31,.06), inset 0 1px 0 rgba(255,255,255,.9); }
 .modal{ animation:modalPop .2s ease-out; }
 @keyframes modalPop{ from{transform:scale(.9);opacity:0;} to{transform:scale(1);opacity:1;} }
+@media (prefers-reduced-motion: reduce){
+  .tile, .tile.temp, .tile.last-word, .modal, .rotate-icon{ animation:none !important; transition:none !important; }
+}
 .disabled-overlay{ opacity:.45; pointer-events:none; }
 .pulse-dot{ animation:pulse 1.5s infinite; }
 @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:.3;} }
@@ -164,6 +202,8 @@ body{ background:var(--apple-gray-bg); color:var(--apple-ink); -webkit-font-smoo
 
       <div id="scoreboard" class="flex flex-wrap gap-1.5"></div>
 
+      <div id="play-history" class="hidden text-left"></div>
+
       <div id="my-turn-banner" class="text-center font-semibold text-[#0071E3] hidden text-sm">Your turn — place your tiles</div>
       <div id="waiting-banner" class="text-center font-semibold text-[#8E8E93] text-sm">Waiting for turn...</div>
       <div id="live-score-preview" class="hidden text-center font-semibold text-sm"></div>
@@ -181,13 +221,6 @@ body{ background:var(--apple-gray-bg); color:var(--apple-ink); -webkit-font-smoo
       </div>
 
       <p id="status-line" class="text-center text-sm min-h-[18px] font-semibold"></p>
-      <div id="word-override-banner" class="hidden bg-white border border-[#D2D2D7] rounded-2xl p-3 text-center">
-        <div class="text-sm text-[#1D1D1F] mb-2">Not sure that's a real word — allow it anyway and add it to this game's dictionary?</div>
-        <div class="flex gap-x-2">
-          <button onclick="overrideAddWordAndRetry()" class="flex-1 py-2 bg-[#0071E3] text-white rounded-xl font-semibold text-sm">Add & Play</button>
-          <button onclick="hideWordOverride()" class="flex-1 py-2 bg-[#F5F5F7] text-[#1D1D1F] rounded-xl font-semibold text-sm">Cancel</button>
-        </div>
-      </div>
     </div>
   </div>
 </div>
@@ -198,6 +231,20 @@ body{ background:var(--apple-gray-bg); color:var(--apple-ink); -webkit-font-smoo
     <h3 class="font-semibold text-lg mb-3 text-center">Choose letter for blank</h3>
     <div id="blank-letter-grid" class="grid grid-cols-6 gap-2"></div>
     <button onclick="closeBlankModal()" class="mt-4 w-full py-2 bg-[#F5F5F7] rounded-xl font-semibold">Cancel</button>
+  </div>
+</div>
+
+<!-- Word challenge: another player verifies an unrecognized word -->
+<div id="word-challenge-modal" class="hidden fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[200] p-4">
+  <div class="modal bg-white max-w-sm w-full rounded-3xl p-5 text-center">
+    <i class="fa-solid fa-circle-question text-4xl text-[#FF9F0A] mb-3"></i>
+    <h3 class="font-semibold text-lg mb-1">Is this a real word?</h3>
+    <div id="word-challenge-text" class="text-2xl font-bold mb-1"></div>
+    <div id="word-challenge-sub" class="text-sm text-[#8E8E93] mb-4"></div>
+    <div class="flex gap-x-2">
+      <button onclick="resolveWordChallenge(true)" class="flex-1 py-3 bg-[#34C759] text-white rounded-2xl font-semibold">Yes, valid</button>
+      <button onclick="resolveWordChallenge(false)" class="flex-1 py-3 bg-[#FF3B30] text-white rounded-2xl font-semibold">No, reject</button>
+    </div>
   </div>
 </div>
 
@@ -268,38 +315,122 @@ localStorage.setItem('scrabble-clientId', myClientId);
 /* =========================================================================
    SOUND — small synthesized effects via Web Audio API (no external files)
    ========================================================================= */
-let audioCtx = null;
+let audioCtx = null, masterBus = null, noiseBuf = null;
 let soundEnabled = localStorage.getItem('scrabble-sound') !== 'off';
 function getAudioCtx(){
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  if (audioCtx.state === 'suspended') audioCtx.resume();
+  if (!audioCtx){
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    // Master chain: gentle compressor so layered notes never clip or spike
+    const comp = audioCtx.createDynamicsCompressor();
+    comp.threshold.value = -18; comp.knee.value = 24; comp.ratio.value = 5;
+    comp.attack.value = 0.003; comp.release.value = 0.2;
+    const master = audioCtx.createGain();
+    master.gain.value = 0.9;
+    master.connect(comp); comp.connect(audioCtx.destination);
+    masterBus = master;
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume().catch(()=>{});
   return audioCtx;
 }
-function tone(freq, duration, type, startTime, peak){
+// iOS silently re-suspends the audio context on devices that go idle (e.g. waiting on someone
+// else's turn). Re-resuming on every tap, not just the very first one, keeps sound working on
+// every connected iPad instead of only whichever device happens to be interacted with most.
+document.addEventListener('pointerdown', () => { try { getAudioCtx(); } catch(e){} }, { passive:true });
+
+function withAudio(fn){
   if (!soundEnabled) return;
   try {
     const ctx = getAudioCtx();
-    const osc = ctx.createOscillator(), gain = ctx.createGain();
-    osc.type = type || 'sine'; osc.frequency.value = freq;
-    osc.connect(gain); gain.connect(ctx.destination);
-    const t0 = ctx.currentTime + (startTime||0);
-    gain.gain.setValueAtTime(0, t0);
-    gain.gain.linearRampToValueAtTime(peak||0.1, t0+0.01);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t0+duration);
-    osc.start(t0); osc.stop(t0+duration+0.03);
+    if (ctx.state === 'running') fn(ctx);
+    else ctx.resume().then(() => fn(ctx)).catch(()=>{});
   } catch(e){}
 }
+function getNoiseBuf(ctx){
+  if (!noiseBuf){
+    noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 0.25, ctx.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i=0;i<d.length;i++) d[i] = Math.random()*2-1;
+  }
+  return noiseBuf;
+}
+
+// A wooden tile "clack": short band-passed noise snap + a low thump, with slight random
+// pitch variation so repeated placements sound like real pieces, not a machine.
+function clack(ctx, at, opts){
+  opts = opts || {};
+  const t0 = ctx.currentTime + (at||0);
+  const vary = 1 + (Math.random()*0.16 - 0.08);
+  // noise snap
+  const src = ctx.createBufferSource(); src.buffer = getNoiseBuf(ctx);
+  const bp = ctx.createBiquadFilter(); bp.type = 'bandpass';
+  bp.frequency.value = (opts.snapFreq || 2100) * vary; bp.Q.value = 1.1;
+  const ng = ctx.createGain();
+  ng.gain.setValueAtTime((opts.gain || 0.5), t0);
+  ng.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.055);
+  src.connect(bp); bp.connect(ng); ng.connect(masterBus);
+  src.start(t0); src.stop(t0 + 0.08);
+  // body thump
+  const osc = ctx.createOscillator(); osc.type = 'sine';
+  osc.frequency.setValueAtTime((opts.thumpFreq || 190) * vary, t0);
+  osc.frequency.exponentialRampToValueAtTime(60, t0 + 0.07);
+  const og = ctx.createGain();
+  og.gain.setValueAtTime((opts.gain || 0.5) * 0.55, t0);
+  og.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.09);
+  osc.connect(og); og.connect(masterBus);
+  osc.start(t0); osc.stop(t0 + 0.12);
+}
+
+// A warm bell/marimba note: fundamental + soft partials, exponential decay.
+function bell(ctx, freq, at, dur, vol){
+  const t0 = ctx.currentTime + (at||0);
+  dur = dur || 0.5; vol = vol || 0.16;
+  const partials = [ [1, 1], [2.0, 0.35], [3.01, 0.12] ]; // slight inharmonicity for warmth
+  partials.forEach(([mult, amt]) => {
+    const osc = ctx.createOscillator(); osc.type = 'sine';
+    osc.frequency.value = freq * mult;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t0);
+    g.gain.linearRampToValueAtTime(vol * amt, t0 + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(g); g.connect(masterBus);
+    osc.start(t0); osc.stop(t0 + dur + 0.05);
+  });
+}
+
+// A soft muted "thud" pair for negative feedback — firm but not harsh.
+function thud(ctx, freq, at, dur, vol){
+  const t0 = ctx.currentTime + (at||0);
+  const osc = ctx.createOscillator(); osc.type = 'triangle';
+  osc.frequency.setValueAtTime(freq, t0);
+  osc.frequency.exponentialRampToValueAtTime(freq*0.7, t0 + dur);
+  const lp = ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value = 500;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0, t0);
+  g.gain.linearRampToValueAtTime(vol, t0 + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  osc.connect(lp); lp.connect(g); g.connect(masterBus);
+  osc.start(t0); osc.stop(t0 + dur + 0.05);
+}
+
+const N = { C5:523.25, E5:659.25, G5:783.99, A5:880, C6:1046.5, Cs6:1108.73, E6:1318.5, G4:392, E4:329.63 };
 const Sound = {
-  click(){ tone(700,0.045,'sine',0,0.06); },
-  pickup(){ tone(420,0.05,'sine',0,0.06); },
-  place(){ tone(640,0.06,'sine',0,0.08); },
-  success(){ tone(523.25,0.12,'sine',0,0.11); tone(659.25,0.12,'sine',0.08,0.11); tone(783.99,0.2,'sine',0.16,0.11); },
-  error(){ tone(190,0.18,'sawtooth',0,0.09); tone(150,0.22,'sawtooth',0.05,0.09); },
-  pass(){ tone(320,0.15,'triangle',0,0.07); tone(230,0.18,'triangle',0.08,0.07); },
-  exchange(){ tone(440,0.06,'square',0,0.045); tone(520,0.06,'square',0.06,0.045); tone(600,0.09,'square',0.12,0.045); },
-  yourTurn(){ tone(880,0.1,'sine',0,0.09); tone(1108.73,0.16,'sine',0.1,0.09); },
-  join(){ tone(700,0.08,'sine',0,0.07); tone(900,0.1,'sine',0.06,0.07); },
-  gameOver(){ [523.25,659.25,783.99,1046.5].forEach((f,i)=>tone(f,0.3,'sine',i*0.12,0.11)); }
+  click(){ withAudio(ctx => clack(ctx, 0, { snapFreq:2600, thumpFreq:0.0001, gain:0.4 })); },
+  pickup(){ withAudio(ctx => clack(ctx, 0, { snapFreq:2500, thumpFreq:230, gain:0.55 })); },
+  place(){ withAudio(ctx => clack(ctx, 0, { snapFreq:1900, thumpFreq:180, gain:0.85 })); },
+  success(){ withAudio(ctx => {
+    clack(ctx, 0, { snapFreq:2000, gain:0.4 });
+    bell(ctx, N.C5, 0.02, 0.45, 0.14); bell(ctx, N.E5, 0.11, 0.45, 0.14); bell(ctx, N.G5, 0.20, 0.7, 0.16);
+  }); },
+  error(){ withAudio(ctx => { thud(ctx, 220, 0, 0.16, 0.18); thud(ctx, 185, 0.09, 0.22, 0.16); }); },
+  pass(){ withAudio(ctx => { bell(ctx, N.G4, 0, 0.3, 0.1); bell(ctx, N.E4, 0.12, 0.4, 0.1); }); },
+  exchange(){ withAudio(ctx => { clack(ctx, 0, {gain:0.4}); clack(ctx, 0.07, {gain:0.45}); clack(ctx, 0.15, {gain:0.5}); }); },
+  yourTurn(){ withAudio(ctx => { bell(ctx, N.A5, 0, 0.35, 0.15); bell(ctx, N.Cs6, 0.13, 0.6, 0.16); }); },
+  join(){ withAudio(ctx => { bell(ctx, N.G5, 0, 0.25, 0.11); bell(ctx, N.C6, 0.09, 0.4, 0.12); }); },
+  gameOver(){ withAudio(ctx => {
+    [N.C5, N.E5, N.G5, N.C6].forEach((f,i) => bell(ctx, f, i*0.14, 0.8, 0.15));
+    bell(ctx, N.E6, 0.56, 1.1, 0.12);
+    clack(ctx, 0, {gain:0.35});
+  }); }
 };
 function toggleSound(){
   soundEnabled = !soundEnabled;
@@ -416,6 +547,16 @@ function registerIncomingConnection(conn){
   conn.on('close', () => {
     const p = state.players.find(pl => pl.clientId === conn._scrabbleClientId);
     if (p) { p.connected = false; broadcastState(); renderLobbyIfShown(); }
+    // If a word challenge is pending and no connected player remains who can verify it,
+    // fail it gracefully instead of blocking the game forever.
+    if (pendingWordChallenge){
+      const verifiers = state.players.filter(pl => pl.clientId !== pendingWordChallenge.clientId && pl.connected !== false);
+      if (verifiers.length === 0){
+        const { clientId: playerClientId, word } = pendingWordChallenge;
+        pendingWordChallenge = null;
+        sendReject(playerClientId, null, { message: 'No player left to verify "' + word + '" — play again or try a different word.' });
+      }
+    }
   });
 }
 
@@ -443,9 +584,12 @@ function handleHostReceive(conn, msg){
 
 function handleClientReceive(msg){
   if (msg.type === 'error'){ setHomeStatus(msg.message); return; }
-  if (msg.type === 'joined'){ myClientId = msg.clientId; localStorage.setItem('scrabble-clientId', myClientId); return; }
+  if (msg.type === 'joined'){ myClientId = msg.clientId; localStorage.setItem('scrabble-clientId', msg.clientId); return; }
   if (msg.type === 'state'){ applyIncomingState(msg.state); return; }
   if (msg.type === 'actionRejected'){ onActionRejected({ message: msg.message, code: msg.code, word: msg.word }); return; }
+  if (msg.type === 'statusMessage'){ setStatusLine(msg.message, false); return; }
+  if (msg.type === 'wordChallenge'){ showWordChallengeModal(msg); return; }
+  if (msg.type === 'wordChallengeClosed'){ closeWordChallengeModal(); return; }
 }
 
 function broadcastState(){
@@ -461,7 +605,7 @@ function stateForRecipient(recipientClientId){
     roomCode: state.roomCode, started: state.started, languageMode: state.languageMode,
     board: state.board, currentPlayerIndex: state.currentPlayerIndex, lastPlay: state.lastPlay, matchHistory: state.matchHistory,
     consecutivePasses: state.consecutivePasses, bagCount: state.bag.length, initialBagSize: state.initialBagSize,
-    log: state.log.slice(-5),
+    log: state.log.slice(-20),
     players: state.players.map(p => p.clientId === recipientClientId
       ? { ...p }
       : { clientId:p.clientId, name:p.name, score:p.score, connected:p.connected, rackCount:p.rack.length })
@@ -541,11 +685,34 @@ async function handleAction(clientId, action, payload, conn){
     return;
   }
 
+  if (action === 'resolveWordChallenge'){
+    if (!pendingWordChallenge || payload.challengeId !== pendingWordChallenge.challengeId) return;
+    if (clientId === pendingWordChallenge.clientId) return; // the player who played it can't verify their own word
+    const { clientId: playerClientId, placements, word } = pendingWordChallenge;
+    pendingWordChallenge = null;
+    state.players.forEach(p => { if (p.clientId !== playerClientId) sendToClient(p.clientId, { type:'wordChallengeClosed' }); });
+    const player = state.players.find(p => p.clientId === playerClientId);
+    if (payload.approve){
+      customWords.add(word.toUpperCase());
+      const result = player ? await tryPlayWord(player, placements) : { valid:false, message:'Player no longer in game.' };
+      if (result.valid){ broadcastState(); checkGameEnd(); }
+      else { sendReject(playerClientId, null, result); }
+    } else {
+      sendReject(playerClientId, null, { message: '"' + word + '" was rejected by another player.' });
+    }
+    return;
+  }
+
   if (!isTurn){ sendReject(clientId, conn, { message: "It's not your turn." }); return; }
 
   if (action === 'playWord'){
+    if (pendingWordChallenge){ sendReject(clientId, conn, { message: 'Please wait, a word is currently being verified.' }); return; }
     const result = await tryPlayWord(currentPlayer, payload.placements);
-    if (!result.valid){ sendReject(clientId, conn, result); return; }
+    if (!result.valid){
+      if (result.code === 'UNKNOWN_WORD'){ startWordChallenge(clientId, currentPlayer, payload.placements, result.word); return; }
+      sendReject(clientId, conn, result);
+      return;
+    }
     broadcastState();
     checkGameEnd();
   } else if (action === 'pass'){
@@ -580,30 +747,47 @@ function sendReject(clientId, conn, result){
   if (c && c.open) c.send({ type:'actionRejected', ...payload });
 }
 
+let pendingWordChallenge = null; // { clientId, placements, word, challengeId } — host-only, not synced in state
+
+function sendToClient(clientId, msg){
+  if (clientId === myClientId){ handleClientReceive(msg); return; } // host receives its own messages the same way
+  const c = connections[clientId];
+  if (c && c.open) c.send(msg);
+}
+
+function startWordChallenge(playerClientId, player, placements, word){
+  const others = state.players.filter(p => p.clientId !== playerClientId && p.connected !== false);
+  if (others.length === 0){
+    sendReject(playerClientId, null, { message: '"' + word + '" is not a recognized word, and no other player is available to verify it.' });
+    return;
+  }
+  const challengeId = 'c_' + Math.random().toString(36).slice(2,10);
+  pendingWordChallenge = { clientId: playerClientId, placements, word, challengeId };
+  sendToClient(playerClientId, { type:'statusMessage', message: 'Waiting for another player to verify "' + word + '"...' });
+  others.forEach(p => sendToClient(p.clientId, { type:'wordChallenge', word, playerName: player.name, challengeId }));
+}
+
 function onActionRejected(payload){
   Sound.error();
   setStatusLine(payload.message, true);
-  showWordOverrideIfApplicable(payload);
 }
 
-let pendingOverrideWord = null;
-function showWordOverrideIfApplicable(payload){
-  if (payload.code === 'UNKNOWN_WORD' && payload.word){
-    pendingOverrideWord = payload.word;
-    document.getElementById('word-override-banner').classList.remove('hidden');
-  } else {
-    hideWordOverride();
-  }
+let currentWordChallenge = null;
+function showWordChallengeModal(msg){
+  currentWordChallenge = { challengeId: msg.challengeId, word: msg.word };
+  document.getElementById('word-challenge-text').textContent = msg.word;
+  document.getElementById('word-challenge-sub').textContent = 'Played by ' + msg.playerName;
+  document.getElementById('word-challenge-modal').classList.remove('hidden');
 }
-function hideWordOverride(){
-  pendingOverrideWord = null;
-  const el = document.getElementById('word-override-banner');
-  if (el) el.classList.add('hidden');
+function closeWordChallengeModal(){
+  currentWordChallenge = null;
+  document.getElementById('word-challenge-modal').classList.add('hidden');
 }
-function overrideAddWordAndRetry(){
-  if (!pendingOverrideWord) return;
-  submitAction('addCustomWord', { word: pendingOverrideWord });
-  clickPlayWord();
+function resolveWordChallenge(approve){
+  if (!currentWordChallenge) return;
+  Sound.click();
+  submitAction('resolveWordChallenge', { challengeId: currentWordChallenge.challengeId, approve });
+  closeWordChallengeModal();
 }
 
 function nextTurn(){
@@ -611,10 +795,14 @@ function nextTurn(){
 }
 
 function beginGame(){
+  pendingWordChallenge = null;
+  state.board = Array.from({length:BOARD_SIZE},()=>Array(BOARD_SIZE).fill(null));
   state.bag = createBag(state.languageMode);
   state.initialBagSize = state.bag.length;
   state.players.forEach(p => { p.rack = state.bag.splice(0, 7); p.score = 0; });
   state.currentPlayerIndex = Math.floor(Math.random() * state.players.length);
+  state.consecutivePasses = 0;
+  state.lastPlay = null;
   state.started = true;
   state.log = ['Game started!'];
   broadcastState();
@@ -803,6 +991,10 @@ function checkGameEnd(){
   if (state.bag.length===0 && empty) endGame();
 }
 function endGame(){
+  if (pendingWordChallenge){
+    state.players.forEach(p => { if (p.clientId !== pendingWordChallenge.clientId) sendToClient(p.clientId, { type:'wordChallengeClosed' }); });
+    pendingWordChallenge = null;
+  }
   const deductions = [];
   state.players.forEach(p => {
     const unplayedValue = p.rack.reduce((sum, t) => sum + (t.points || 0), 0);
@@ -920,6 +1112,20 @@ function setLanguageMode(mode){
 /* =========================================================================
    UI: GAME
    ========================================================================= */
+function renderPlayHistory(s){
+  const el = document.getElementById('play-history');
+  if (!el) return;
+  const plays = (s.log || []).filter(e => e.indexOf(' played "') !== -1);
+  const recent = plays.slice(-10).reverse(); // most recent first
+  if (!recent.length){ el.classList.add('hidden'); return; }
+  el.classList.remove('hidden');
+  el.innerHTML = '<div class="text-[10px] uppercase tracking-wide text-[#8E8E93] mb-1">Recent plays</div>' +
+    recent.map((entry, i) => {
+      const opacity = Math.max(1 - i * 0.09, 0.25).toFixed(2);
+      return '<div class="text-[11px] leading-tight py-0.5" style="opacity:' + opacity + '">' + escapeHtml(entry) + '</div>';
+    }).join('');
+}
+
 function renderMatchHistory(s){
   const el = document.getElementById('match-progress');
   const history = s.matchHistory || [];
@@ -988,6 +1194,7 @@ function renderGame(){
   ['btn-play','btn-recall','btn-exchange','btn-pass'].forEach(id => { document.getElementById(id).disabled = !myTurn || !s.started; });
 
   renderMatchHistory(s);
+  renderPlayHistory(s);
 
   // scoreboard — current player's badge is inverted (blue background, white text) to stand out
   document.getElementById('scoreboard').innerHTML = s.players.map(p => {
@@ -1003,7 +1210,12 @@ function renderGame(){
   renderRack(me);
   updateLiveScorePreview();
 
-  if (s.log && s.log.length) setStatusLine(s.log[s.log.length-1], false);
+  if (s.log && s.log.length){
+    const last = s.log[s.log.length-1];
+    // Word plays already appear at the top of Recent Plays; only surface other events here.
+    if (last.indexOf(' played "') === -1) setStatusLine(last, false);
+    else setStatusLine('', false);
+  }
   if (!s.started){
     const winner = [...s.players].sort((a,b)=>b.score-a.score)[0];
     document.getElementById('winner-text').textContent = winner.name + ' wins with ' + winner.score + ' points!';
@@ -1022,7 +1234,7 @@ function renderBoard(board, lastPlay){
       const tile = board[r][c] || (tempIdx!==-1 ? placementsThisTurn[tempIdx].tile : null);
       const premium = getPremium(r,c);
       const isLastWord = board[r][c] && lastPositions.some(p=>p.row===r&&p.col===c);
-      cell.className = 'board-cell flex items-center justify-center rounded-sm ' + (premium ? getPremiumClass(premium) : 'bg-[#FBFBFD]');
+      cell.className = 'board-cell flex items-center justify-center ' + (premium ? getPremiumClass(premium) : 'cell-plain');
       cell.dataset.row = r; cell.dataset.col = c;
       cell.onclick = () => handleBoardClick(r,c);
       if (tile){
@@ -1194,16 +1406,15 @@ function reorderRackByDrop(tileId, dropX){
   renderGame();
 }
 
-function clickRecall(){ Sound.click(); hideWordOverride(); placementsThisTurn = []; selectedTileForPlacement = null; renderGame(); }
+function clickRecall(){ Sound.click(); placementsThisTurn = []; selectedTileForPlacement = null; renderGame(); }
 
 function clickPlayWord(){
   if (placementsThisTurn.length===0){ setStatusLine('Place some tiles first.', true); return; }
   Sound.click();
-  hideWordOverride();
   const payload = { placements: placementsThisTurn.map(p => ({ row:p.row, col:p.col, tileId:p.tile.id, playedAs:p.tile.playedAs })) };
   submitAction('playWord', payload);
   // placementsThisTurn is left intact: on success the board update prunes committed tiles automatically;
-  // on rejection the tiles stay staged so the player can adjust or override (see showWordOverrideIfApplicable).
+  // on rejection (or while a word is being verified by another player) the tiles stay staged so the player can adjust.
 }
 
 function clickPass(){
