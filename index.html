@@ -155,6 +155,12 @@ body{ background:var(--apple-gray-bg); color:var(--apple-ink); -webkit-font-smoo
     </div>
 
     <p id="home-status" class="mt-4 text-sm text-[#6E6E73] min-h-[20px] whitespace-pre-line text-left"></p>
+
+    <button onclick="testSound()" class="mt-4 w-full py-3 bg-white border border-[#D2D2D7] rounded-2xl font-semibold text-sm text-[#1D1D1F]">
+      <i class="fa-solid fa-volume-high mr-2"></i>Test Sound
+    </button>
+    <p id="sound-diag" class="hidden mt-2 text-[11px] text-[#8E8E93] break-words text-left"></p>
+
     <p class="mt-6 text-xs text-[#8E8E93]">First connection needs internet briefly (to find each other). Gameplay then runs over your wifi.</p>
   </div>
 </div>
@@ -326,35 +332,35 @@ localStorage.setItem('scrabble-clientId', myClientId);
 /* =========================================================================
    SOUND — small synthesized effects via Web Audio API (no external files)
    ========================================================================= */
-let audioCtx = null, masterBus = null, noiseBuf = null;
+let audioCtx = null, masterBus = null, noiseBuf = null, lastAudioError = null;
 let soundEnabled = localStorage.getItem('scrabble-sound') !== 'off';
 function getAudioCtx(){
   if (!audioCtx){
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    // Master chain: gentle compressor so layered notes never clip or spike
-    const comp = audioCtx.createDynamicsCompressor();
-    comp.threshold.value = -18; comp.knee.value = 24; comp.ratio.value = 5;
-    comp.attack.value = 0.003; comp.release.value = 0.2;
-    const master = audioCtx.createGain();
-    master.gain.value = 0.9;
-    master.connect(comp); comp.connect(audioCtx.destination);
-    masterBus = master;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC){ lastAudioError = 'Web Audio API not available in this browser.'; return null; }
+    audioCtx = new AC();
+    // Simple chain: one gain node straight to destination. (Removed the compressor node —
+    // fewer nodes in the graph means fewer places for iPadOS audio-session quirks to bite.)
+    masterBus = audioCtx.createGain();
+    masterBus.gain.value = 1.0;
+    masterBus.connect(audioCtx.destination);
   }
-  if (audioCtx.state === 'suspended') audioCtx.resume().catch(()=>{});
+  if (audioCtx.state === 'suspended') audioCtx.resume().catch(e => { lastAudioError = String(e); });
   return audioCtx;
 }
 // iOS silently re-suspends the audio context on devices that go idle (e.g. waiting on someone
 // else's turn). Re-resuming on every tap, not just the very first one, keeps sound working on
 // every connected iPad instead of only whichever device happens to be interacted with most.
-document.addEventListener('pointerdown', () => { try { getAudioCtx(); } catch(e){} }, { passive:true });
+document.addEventListener('pointerdown', () => { try { getAudioCtx(); } catch(e){ lastAudioError = String(e); } }, { passive:true });
 
 function withAudio(fn){
   if (!soundEnabled) return;
   try {
     const ctx = getAudioCtx();
+    if (!ctx) return;
     if (ctx.state === 'running') fn(ctx);
-    else ctx.resume().then(() => fn(ctx)).catch(()=>{});
-  } catch(e){}
+    else ctx.resume().then(() => fn(ctx)).catch(e => { lastAudioError = String(e); });
+  } catch(e){ lastAudioError = String(e); }
 }
 function getNoiseBuf(ctx){
   if (!noiseBuf){
@@ -452,6 +458,25 @@ function toggleSound(){
 function updateSoundToggleIcon(){
   const el = document.getElementById('sound-toggle-icon');
   if (el) el.className = soundEnabled ? 'fa-solid fa-volume-high' : 'fa-solid fa-volume-xmark';
+}
+
+function testSound(){
+  lastAudioError = null;
+  const before = audioCtx ? audioCtx.state : '(none yet)';
+  const hasAPI = !!(window.AudioContext || window.webkitAudioContext);
+  soundEnabled = true;
+  const ctx = getAudioCtx();
+  const report = (extra) => {
+    const state = ctx ? ctx.state : '(failed to create)';
+    const sr = ctx ? ctx.sampleRate : '-';
+    const msg = `API:${hasAPI?'yes':'NO'} | before:${before} | now:${state} | rate:${sr}` + (lastAudioError ? ` | ERROR: ${lastAudioError}` : '') + (extra||'');
+    const el = document.getElementById('sound-diag');
+    if (el){ el.textContent = msg; el.classList.remove('hidden'); }
+  };
+  if (!ctx){ report(); return; }
+  bell(ctx, 880, 0, 0.5, 0.3);
+  bell(ctx, 1318.5, 0.15, 0.5, 0.25);
+  setTimeout(() => report(' | playing 2 notes now — did you hear them?'), 50);
 }
 
 /* =========================================================================
