@@ -859,7 +859,20 @@ function startWordChallenge(playerClientId, player, placements, word){
   const challengeId = 'c_' + Math.random().toString(36).slice(2,10);
   pendingWordChallenge = { clientId: playerClientId, placements, word, challengeId };
   sendToClient(playerClientId, { type:'statusMessage', message: 'Waiting for another player to verify "' + word + '"...' });
-  others.forEach(p => sendToClient(p.clientId, { type:'wordChallenge', word, playerName: player.name, challengeId }));
+  others.forEach(p => {
+    if (p.isBot){
+      // The bot only ever plays words from its own dictionary, and this word already failed
+      // that exact same dictionary check to reach a challenge — so the bot always rejects it.
+      // A short delay gives a human verifier (if any) a fair chance to answer first.
+      setTimeout(() => {
+        if (pendingWordChallenge && pendingWordChallenge.challengeId === challengeId){
+          handleAction(p.clientId, 'resolveWordChallenge', { challengeId, approve:false });
+        }
+      }, 500 + Math.random()*500);
+    } else {
+      sendToClient(p.clientId, { type:'wordChallenge', word, playerName: player.name, challengeId });
+    }
+  });
 }
 
 function onActionRejected(payload){
@@ -1395,7 +1408,7 @@ function setLanguageMode(mode){
 function renderPlayHistory(s){
   const el = document.getElementById('play-history');
   if (!el) return;
-  const plays = (s.log || []).filter(e => e.indexOf(' played "') !== -1);
+  const plays = (s.log || []).filter(e => e.indexOf(' played "') !== -1 || e.indexOf(' passed.') !== -1);
   const recent = plays.slice(-10).reverse(); // most recent first
   if (!recent.length){ el.classList.add('hidden'); return; }
   el.classList.remove('hidden');
