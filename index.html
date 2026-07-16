@@ -178,6 +178,9 @@ body{ background:var(--apple-gray-bg); color:var(--apple-ink); -webkit-font-smoo
       <div id="lobby-tile-distribution" class="flex flex-wrap gap-1 mb-4 max-h-32 overflow-y-auto"></div>
       <h3 class="font-semibold text-lg mb-3 text-left">Players</h3>
       <div id="lobby-players" class="space-y-2 text-left mb-4"></div>
+      <button id="btn-add-bot" onclick="hostAddBot()" class="hidden w-full py-3 mb-3 bg-[#F5F5F7] border border-[#D2D2D7] text-[#1D1D1F] rounded-2xl font-semibold text-sm">
+        <i class="fa-solid fa-robot mr-2"></i>Add Computer Player
+      </button>
       <button id="btn-start-game" onclick="hostStartGame()" class="w-full py-4 bg-[#0071E3] text-white rounded-2xl font-semibold text-lg disabled:opacity-40" disabled>
         Start Game
       </button>
@@ -733,7 +736,7 @@ function submitAction(action, payload){
 }
 
 async function handleAction(clientId, action, payload, conn){
-  if (!state.started && action !== 'startGame') return;
+  if (!state.started && action !== 'startGame' && action !== 'addBot' && action !== 'removeBot') return;
   const currentPlayer = state.players[state.currentPlayerIndex];
   const isTurn = currentPlayer && currentPlayer.clientId === clientId;
 
@@ -754,6 +757,26 @@ async function handleAction(clientId, action, payload, conn){
     return;
   }
 
+  if (action === 'addBot'){
+    if (clientId !== state.players[0].clientId) return; // host only
+    if (state.started) return;
+    if (state.players.some(p => p.isBot)) return; // only one simulated player
+    if (state.players.length >= MAX_PLAYERS) return;
+    state.players.push({ clientId: 'bot_' + Math.random().toString(36).slice(2,8), name:'Computer', rack:[], score:0, connected:true, isBot:true });
+    broadcastState();
+    renderLobbyIfShown();
+    return;
+  }
+
+  if (action === 'removeBot'){
+    if (clientId !== state.players[0].clientId) return; // host only
+    if (state.started) return;
+    state.players = state.players.filter(p => !p.isBot);
+    broadcastState();
+    renderLobbyIfShown();
+    return;
+  }
+
   if (action === 'resolveWordChallenge'){
     if (!pendingWordChallenge || payload.challengeId !== pendingWordChallenge.challengeId) return;
     if (clientId === pendingWordChallenge.clientId) return; // the player who played it can't verify their own word
@@ -764,7 +787,7 @@ async function handleAction(clientId, action, payload, conn){
     if (payload.approve){
       customWords.add(word.toUpperCase());
       const result = player ? await tryPlayWord(player, placements) : { valid:false, message:'Player no longer in game.' };
-      if (result.valid){ broadcastState(); checkGameEnd(); }
+      if (result.valid){ broadcastState(); checkGameEnd(); checkBotTurn(); }
       else { sendReject(playerClientId, null, result); }
     } else {
       sendReject(playerClientId, null, { message: '"' + word + '" was rejected by another player.' });
@@ -784,12 +807,14 @@ async function handleAction(clientId, action, payload, conn){
     }
     broadcastState();
     checkGameEnd();
+    checkBotTurn();
   } else if (action === 'pass'){
     state.log.push(currentPlayer.name + ' passed.');
     state.consecutivePasses++;
     nextTurn();
     broadcastState();
     if (state.consecutivePasses >= state.players.length * 2){ endGame(); }
+    checkBotTurn();
   } else if (action === 'exchange'){
     if (state.bag.length < payload.tileIds.length){ sendReject(clientId, conn, { message:'Not enough tiles left in bag to exchange.' }); return; }
     const rack = currentPlayer.rack;
@@ -806,6 +831,7 @@ async function handleAction(clientId, action, payload, conn){
     state.consecutivePasses = 0;
     nextTurn();
     broadcastState();
+    checkBotTurn();
   }
 }
 
@@ -875,6 +901,7 @@ function beginGame(){
   state.started = true;
   state.log = ['Game started!'];
   broadcastState();
+  checkBotTurn();
 }
 
 /* =========================================================================
@@ -1060,6 +1087,8 @@ function checkGameEnd(){
   if (state.bag.length===0 && empty) endGame();
 }
 function endGame(){
+  if (botTurnTimer){ clearTimeout(botTurnTimer); botTurnTimer = null; }
+  botMoveInProgress = false;
   if (pendingWordChallenge){
     state.players.forEach(p => { if (p.clientId !== pendingWordChallenge.clientId) sendToClient(p.clientId, { type:'wordChallengeClosed' }); });
     pendingWordChallenge = null;
@@ -1084,6 +1113,176 @@ function endGame(){
   state.matchHistory = state.matchHistory.slice(-5);
   state.started = false; // freeze board
   broadcastState();
+}
+
+/* =========================================================================
+   SIMULATED PLAYER ("Computer") — host-only. Reuses tryPlayWord/validatePlacement
+   for correctness: this engine only GENERATES candidate placements from real
+   dictionary words the bot's rack can form; the existing engine still validates
+   geometry, cross-words, and scoring, exactly as it would for a human play.
+   ========================================================================= */
+let botTurnTimer = null;
+let botMoveInProgress = false;
+
+function checkBotTurn(){
+  if (!isHost) return;
+  if (!state.started || botMoveInProgress) return;
+  const current = state.players[state.currentPlayerIndex];
+  if (!current || !current.isBot) return;
+  botMoveInProgress = true;
+  botTurnTimer = setTimeout(() => {
+    runBotTurn(current).catch(()=>{}).finally(() => { botMoveInProgress = false; });
+  }, 700 + Math.random()*600);
+}
+
+let dictArrCache = { mode:null, size:0, arr:null };
+function getActiveDictionaryArray(mode){
+  if (dictArrCache.mode === mode && dictArrCache.size === customWords.size) return dictArrCache.arr;
+  const combined = new Set();
+  if (mode === 'english' || mode === 'both') ENGLISH_WORDS.forEach(w=>combined.add(w));
+  if (mode === 'afrikaans' || mode === 'both') AFRIKAANS_WORDS.forEach(w=>combined.add(w));
+  customWords.forEach(w=>combined.add(w));
+  const arr = Array.from(combined);
+  dictArrCache = { mode, size: customWords.size, arr };
+  return arr;
+}
+function getWordsByLength(mode){
+  const arr = getActiveDictionaryArray(mode);
+  const buckets = {};
+  arr.forEach(w => { const L = w.length; if (L<2 || L>7) return; (buckets[L] = buckets[L]||[]).push(w); });
+  return buckets;
+}
+function rackLetterCounts(rack){
+  const counts = {}; let blanks = 0;
+  rack.forEach(t => { if (t.isBlank) blanks++; else counts[t.letter] = (counts[t.letter]||0)+1; });
+  return { counts, blanks };
+}
+function canFormWithRack(word, fixedMask, counts, blanks){
+  const need = {};
+  for (let i=0;i<word.length;i++){ if (fixedMask[i]) continue; need[word[i]] = (need[word[i]]||0)+1; }
+  let blankBank = blanks;
+  for (const ch in need){
+    let n = need[ch] - (counts[ch]||0);
+    if (n > 0){ if (blankBank >= n){ blankBank -= n; } else return false; }
+  }
+  return true;
+}
+function buildPlacementsForWord(word, startRow, startCol, dRow, dCol, rack, fixedLetters){
+  const rackCopy = rack.map(t => ({ ...t, used:false }));
+  const placements = [];
+  for (let i=0;i<word.length;i++){
+    if (fixedLetters[i] !== null) continue; // sits on an existing tile — not a new placement
+    const rr = startRow+dRow*i, cc = startCol+dCol*i;
+    const letter = word[i];
+    let idx = rackCopy.findIndex(t => !t.used && !t.isBlank && t.letter === letter);
+    let playedAs;
+    if (idx === -1){
+      idx = rackCopy.findIndex(t => !t.used && t.isBlank);
+      if (idx === -1) return null;
+      playedAs = letter;
+    }
+    rackCopy[idx].used = true;
+    placements.push({ row:rr, col:cc, tileId: rackCopy[idx].id, playedAs });
+  }
+  if (!placements.length) return null;
+  return placements;
+}
+
+function findBotCandidates(bot){
+  const buckets = getWordsByLength(state.languageMode);
+  const { counts, blanks } = rackLetterCounts(bot.rack);
+  const boardEmpty = state.board.flat().every(c => c===null);
+  const candidates = [];
+
+  if (boardEmpty){
+    for (let L = Math.min(7, bot.rack.length); L>=2 && candidates.length<12; L--){
+      const words = buckets[L] || [];
+      const tries = Math.min(words.length, 300);
+      for (let n=0; n<tries && candidates.length<12; n++){
+        const w = words[Math.floor(Math.random()*words.length)];
+        const fixedMask = new Array(L).fill(false);
+        if (!canFormWithRack(w, fixedMask, counts, blanks)) continue;
+        const lo = Math.max(0, CENTER-L+1), hi = Math.min(CENTER, BOARD_SIZE-L);
+        if (lo>hi) continue;
+        const startCol = lo + Math.floor(Math.random()*(hi-lo+1));
+        const fixedLetters = new Array(L).fill(null);
+        const placements = buildPlacementsForWord(w, CENTER, startCol, 0, 1, bot.rack, fixedLetters);
+        if (placements) candidates.push({ placements });
+      }
+    }
+    return candidates;
+  }
+
+  const anchors = [];
+  for (let r=0;r<BOARD_SIZE;r++){
+    for (let c=0;c<BOARD_SIZE;c++){
+      if (state.board[r][c]) continue;
+      const hasNeighbor = (r>0&&state.board[r-1][c]) || (r<BOARD_SIZE-1&&state.board[r+1][c]) || (c>0&&state.board[r][c-1]) || (c<BOARD_SIZE-1&&state.board[r][c+1]);
+      if (hasNeighbor) anchors.push({row:r,col:c});
+    }
+  }
+  shuffleArray(anchors);
+  const startTime = Date.now();
+
+  outer:
+  for (const anchor of anchors){
+    if (Date.now()-startTime > 600 || candidates.length >= 40) break;
+    for (const [dRow,dCol] of [[0,1],[1,0]]){
+      for (let L=2; L<=7; L++){
+        for (let offset=0; offset<L; offset++){
+          if (Date.now()-startTime > 600 || candidates.length >= 40) break outer;
+          const startRow = anchor.row - dRow*offset, startCol = anchor.col - dCol*offset;
+          const endRow = startRow + dRow*(L-1), endCol = startCol + dCol*(L-1);
+          if (startRow<0||startCol<0||endRow>=BOARD_SIZE||endCol>=BOARD_SIZE) continue;
+          const beforeRow = startRow-dRow, beforeCol = startCol-dCol;
+          const afterRow = endRow+dRow, afterCol = endCol+dCol;
+          if (beforeRow>=0&&beforeCol>=0&&beforeRow<BOARD_SIZE&&beforeCol<BOARD_SIZE&&state.board[beforeRow][beforeCol]) continue;
+          if (afterRow>=0&&afterCol>=0&&afterRow<BOARD_SIZE&&afterCol<BOARD_SIZE&&state.board[afterRow][afterCol]) continue;
+
+          const fixedLetters = new Array(L).fill(null);
+          for (let i=0;i<L;i++){
+            const cell = state.board[startRow+dRow*i][startCol+dCol*i];
+            if (cell) fixedLetters[i] = cell.letter;
+          }
+          const words = buckets[L] || [];
+          for (const w of words){
+            let matches = true;
+            for (let i=0;i<L;i++){ if (fixedLetters[i]!==null && w[i]!==fixedLetters[i]){ matches=false; break; } }
+            if (!matches) continue;
+            const fixedMask = fixedLetters.map(f => f!==null);
+            if (!canFormWithRack(w, fixedMask, counts, blanks)) continue;
+            const placements = buildPlacementsForWord(w, startRow, startCol, dRow, dCol, bot.rack, fixedLetters);
+            if (placements){ candidates.push({ placements }); if (candidates.length>=40) break outer; }
+          }
+        }
+      }
+    }
+  }
+  return candidates;
+}
+
+async function runBotTurn(bot){
+  if (!state.started) return;
+  const current = state.players[state.currentPlayerIndex];
+  if (!current || current.clientId !== bot.clientId) return;
+
+  const candidates = findBotCandidates(bot);
+  shuffleArray(candidates);
+  let played = false;
+  for (const cand of candidates.slice(0, 20)){
+    const result = await tryPlayWord(bot, cand.placements);
+    if (result.valid){ broadcastState(); checkGameEnd(); played = true; break; }
+  }
+  if (!played){
+    if (state.bag.length >= 1 && bot.rack.length > 0 && Math.random() < 0.6){
+      const swapCount = Math.min(bot.rack.length, state.bag.length, 1 + Math.floor(Math.random()*3));
+      const ids = shuffleArray(bot.rack.slice()).slice(0, swapCount).map(t=>t.id);
+      await handleAction(bot.clientId, 'exchange', { tileIds: ids });
+    } else {
+      await handleAction(bot.clientId, 'pass');
+    }
+  }
+  checkBotTurn(); // future-proofing in case a later version allows more than one bot
 }
 
 /* =========================================================================
@@ -1146,9 +1345,19 @@ function renderLobbyFromState(){
   const wrap = document.getElementById('lobby-players');
   wrap.innerHTML = src.players.map(p => `
     <div class="flex items-center justify-between bg-[#F5F5F7] rounded-xl px-3 py-2">
-      <span class="font-semibold">${escapeHtml(p.name)}</span>
-      <span class="text-xs ${p.connected!==false ? 'text-[#34C759]' : 'text-[#FF3B30]'}">${p.connected!==false ? '● online' : '○ offline'}</span>
+      <span class="font-semibold">${p.isBot ? '<i class="fa-solid fa-robot mr-1 text-[#8E8E93]"></i>' : ''}${escapeHtml(p.name)}</span>
+      <span class="flex items-center gap-x-2">
+        ${p.isBot && isHost ? '<button onclick="hostRemoveBot()" class="text-[10px] text-[#FF3B30] font-semibold">Remove</button>' : `<span class="text-xs ${p.connected!==false ? 'text-[#34C759]' : 'text-[#FF3B30]'}">${p.connected!==false ? '● online' : '○ offline'}</span>`}
+      </span>
     </div>`).join('');
+
+  const addBotBtn = document.getElementById('btn-add-bot');
+  if (isHost && !src.players.some(p => p.isBot) && src.players.length < MAX_PLAYERS){
+    addBotBtn.classList.remove('hidden');
+  } else {
+    addBotBtn.classList.add('hidden');
+  }
+
   const btn = document.getElementById('btn-start-game');
   if (isHost){
     btn.classList.remove('hidden');
@@ -1160,6 +1369,8 @@ function renderLobbyFromState(){
   }
 }
 function hostStartGame(){ Sound.click(); submitAction('startGame'); }
+function hostAddBot(){ Sound.click(); submitAction('addBot'); }
+function hostRemoveBot(){ Sound.click(); submitAction('removeBot'); }
 function closeWinnerModal(){
   document.getElementById('winner-modal').classList.add('hidden');
   showScreen('lobby');
@@ -1270,7 +1481,7 @@ function renderGame(){
     const isCurrent = p.clientId===current?.clientId;
     return `
     <div class="score-badge rounded-xl px-3 py-2 text-sm pc-${i % 6} ${isCurrent ? 'current' : ''}">
-      <div class="font-bold">${escapeHtml(p.name)} ${p.clientId===myClientId?'(you)':''}</div>
+      <div class="font-bold">${p.isBot ? '<i class="fa-solid fa-robot mr-1"></i>' : ''}${escapeHtml(p.name)} ${p.clientId===myClientId?'(you)':''}</div>
       <div class="sub">${p.score} pts ${p.connected===false?'<span class=\"offline-label\">· offline</span>':''}</div>
     </div>`;
   }).join('');
