@@ -187,6 +187,7 @@ body{ background:var(--apple-gray-bg); color:var(--apple-ink); -webkit-font-smoo
       <p id="lobby-note" class="text-xs text-[#8E8E93] mt-3">Need at least 2 players to start.</p>
     </div>
     <p id="lobby-status" class="mt-4 text-sm text-[#6E6E73] min-h-[20px]"></p>
+    <p class="mt-2 text-[11px] text-[#C7C7CC]">Scrabble LAN <span id="app-version"></span></p>
   </div>
 </div>
 
@@ -294,6 +295,7 @@ body{ background:var(--apple-gray-bg); color:var(--apple-ink); -webkit-font-smoo
 /* =========================================================================
    GAME CONSTANTS
    ========================================================================= */
+const APP_VERSION = 'v1.5.0';
 const BOARD_SIZE = 15, CENTER = 7, MAX_PLAYERS = 6;
 const LETTER_POINTS_EN = {A:1,B:3,C:3,D:2,E:1,F:4,G:2,H:4,I:1,J:8,K:5,L:1,M:3,N:1,O:1,P:3,Q:10,R:1,S:1,T:1,U:1,V:4,W:4,X:8,Y:4,Z:10,'':0};
 const LETTER_DISTRIBUTION_EN = {A:9,B:2,C:2,D:4,E:12,F:2,G:3,H:2,I:9,J:1,K:1,L:4,M:2,N:6,O:8,P:2,Q:1,R:6,S:4,T:6,U:4,V:2,W:2,X:1,Y:2,Z:1,'':2};
@@ -530,6 +532,7 @@ function startHostFlow(){
     showLobby();
   });
   peer.on('connection', conn => registerIncomingConnection(conn));
+  peer.on('disconnected', () => { try { peer.reconnect(); } catch(e){} });
   peer.on('error', err => { clearTimeout(timeout); setHomeStatus(describePeerError(err)); });
 }
 
@@ -558,11 +561,18 @@ function connectToHost(code, name, onError, onTimeout){
       hostConn.send({ type:'join', name, clientId: myClientId });
       localStorage.setItem('scrabble-room', code);
       updateConnectionBadge(true);
+      isReconnecting = false;
+      reconnectBackoffMs = 2000; // healthy connection — reset backoff for next time
+      lastHostMessageAt = Date.now();
+      flushPendingActions();
     });
     hostConn.on('data', handleClientReceive);
-    hostConn.on('close', () => { updateConnectionBadge(false); setStatusLine('Connection lost — reconnecting when possible...', true); });
+    hostConn.on('close', () => { updateConnectionBadge(false); setStatusLine('Connection lost — reconnecting automatically...', true); attemptReconnect(); });
     hostConn.on('error', e => { clearTimeout(timeout); onError(describePeerError(e)); });
   });
+  // Broker-level disconnect (different from a dropped data connection) — PeerJS can usually
+  // resume signaling in place without needing a brand-new peer identity.
+  peer.on('disconnected', () => { try { peer.reconnect(); } catch(e){} });
   peer.on('error', err => { clearTimeout(timeout); onError(describePeerError(err)); });
 }
 
@@ -575,20 +585,43 @@ function updateConnectionBadge(connected){
 
 // iPads lock/sleep between turns, which kills the WebRTC link and left players stuck
 // showing "offline" until they manually rejoined. Reconnect automatically the moment
-// the app becomes visible again. (The host keeps its clientId, so the host recognises
-// the returning player and restores their seat, rack, and score.)
+// the app becomes visible again, on any tap, AND on a background watchdog timer — so a
+// dropped connection heals itself even if nobody happens to touch the screen right away.
+// (The host keeps its clientId, so the host recognises the returning player and restores
+// their seat, rack, and score.)
+let isReconnecting = false;
+let reconnectBackoffMs = 2000;
+const RECONNECT_BACKOFF_MAX = 12000;
+
 function attemptReconnect(){
   if (isHost) return; // host is the room itself; only clients rejoin
   if (!roomCode || !myName) return;
   if (hostConn && hostConn.open) return;
+  if (isReconnecting) return; // avoid piling up overlapping connection attempts
+  isReconnecting = true;
   updateConnectionBadge(false);
   connectToHost(roomCode, myName,
-    msg => setStatusLine(msg, true),
-    () => setStatusLine('Reconnect failed — check wifi/internet and tap anywhere to retry.', true));
+    msg => { isReconnecting = false; setStatusLine(msg, true); },
+    () => {
+      isReconnecting = false;
+      setStatusLine('Reconnect failed — will keep retrying automatically. Check wifi/internet.', true);
+      reconnectBackoffMs = Math.min(reconnectBackoffMs * 1.6, RECONNECT_BACKOFF_MAX);
+    });
 }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') attemptReconnect(); });
 window.addEventListener('pageshow', () => attemptReconnect());
+window.addEventListener('online', () => attemptReconnect());
 document.addEventListener('pointerdown', () => attemptReconnect(), { passive:true });
+// Background watchdog: even with no taps and no tab-visibility change, keep checking.
+// (A self-rescheduling timeout, not setInterval, so it actually respects the growing backoff.)
+function scheduleWatchdog(){
+  setTimeout(() => {
+    if (!isHost && roomCode && myName && (!hostConn || !hostConn.open) && !isReconnecting) attemptReconnect();
+    scheduleWatchdog();
+  }, reconnectBackoffMs);
+}
+scheduleWatchdog();
+setInterval(() => { reconnectBackoffMs = 2000; }, 60000); // periodically reset backoff so long outages don't leave retries too sparse
 
 function failToConnect(kind){
   try { peer && peer.destroy(); } catch(e){}
@@ -616,6 +649,10 @@ function describePeerError(err){
 function registerIncomingConnection(conn){
   conn.on('data', data => handleHostReceive(conn, data));
   conn.on('open', () => {});
+  conn.on('error', () => {
+    const p = state.players.find(pl => pl.clientId === conn._scrabbleClientId);
+    if (p && p.connected !== false) { p.connected = false; broadcastState(); renderLobbyIfShown(); }
+  });
   conn.on('close', () => {
     const p = state.players.find(pl => pl.clientId === conn._scrabbleClientId);
     if (p) { p.connected = false; broadcastState(); renderLobbyIfShown(); }
@@ -632,10 +669,12 @@ function registerIncomingConnection(conn){
   });
 }
 
+let lastPongAt = {}; // host-side: clientId -> timestamp of last heartbeat reply
 function handleHostReceive(conn, msg){
   if (msg.type === 'join'){
     conn._scrabbleClientId = msg.clientId;
     connections[msg.clientId] = conn;
+    lastPongAt[msg.clientId] = Date.now();
     let p = state.players.find(pl => pl.clientId === msg.clientId);
     if (p){
       p.connected = true; p.name = msg.name || p.name; // reconnect
@@ -649,12 +688,34 @@ function handleHostReceive(conn, msg){
     renderLobbyIfShown();
     return;
   }
+  if (msg.type === 'pong'){ lastPongAt[conn._scrabbleClientId] = Date.now(); return; }
   if (msg.type === 'action'){
+    lastPongAt[conn._scrabbleClientId] = Date.now(); // any traffic counts as alive
     handleAction(msg.clientId || conn._scrabbleClientId, msg.action, msg.payload, conn);
   }
 }
 
+// Heartbeat: catches "zombie" connections that look open but have actually gone dead —
+// common on flaky wifi where WebRTC's own close event can take a long time to fire.
+setInterval(() => {
+  if (!isHost) return;
+  Object.entries(connections).forEach(([clientId, conn]) => { if (conn.open) try { conn.send({ type:'ping' }); } catch(e){} });
+  const now = Date.now();
+  state.players.forEach(p => {
+    if (p.clientId === myClientId || p.isBot) return;
+    const last = lastPongAt[p.clientId];
+    if (last && now - last > 20000 && p.connected !== false){
+      p.connected = false;
+      broadcastState();
+      renderLobbyIfShown();
+    }
+  });
+}, 6000);
+
+let lastHostMessageAt = Date.now();
 function handleClientReceive(msg){
+  lastHostMessageAt = Date.now(); // any traffic from the host proves the link is alive
+  if (msg.type === 'ping'){ if (hostConn && hostConn.open) hostConn.send({ type:'pong' }); return; }
   if (msg.type === 'error'){ setHomeStatus(msg.message); return; }
   if (msg.type === 'joined'){ myClientId = msg.clientId; localStorage.setItem('scrabble-clientId', msg.clientId); return; }
   if (msg.type === 'state'){ applyIncomingState(msg.state); return; }
@@ -663,6 +724,16 @@ function handleClientReceive(msg){
   if (msg.type === 'wordChallenge'){ showWordChallengeModal(msg); return; }
   if (msg.type === 'wordChallengeClosed'){ closeWordChallengeModal(); return; }
 }
+// If nothing at all has arrived from the host in a while (including heartbeats), the
+// connection is dead even if PeerJS hasn't fired 'close' yet — force a reconnect attempt.
+setInterval(() => {
+  if (isHost || !hostConn) return;
+  if (hostConn.open && Date.now() - lastHostMessageAt > 20000){
+    try { hostConn.close(); } catch(e){}
+    updateConnectionBadge(false);
+    attemptReconnect();
+  }
+}, 7000);
 
 function broadcastState(){
   Object.values(connections).forEach(conn => {
@@ -730,9 +801,23 @@ function handleSoundEvents(s){
 /* =========================================================================
    ACTIONS — sent by any client, executed ONLY on host
    ========================================================================= */
+let pendingActionQueue = []; // actions attempted while disconnected — replayed in order once reconnected
 function submitAction(action, payload){
-  if (isHost){ handleAction(myClientId, action, payload); }
-  else { hostConn && hostConn.send({ type:'action', action, payload, clientId: myClientId }); }
+  if (isHost){ handleAction(myClientId, action, payload); return; }
+  if (hostConn && hostConn.open){
+    hostConn.send({ type:'action', action, payload, clientId: myClientId });
+  } else {
+    pendingActionQueue.push({ action, payload });
+    setStatusLine('Not connected — will send "' + action + '" as soon as reconnected.', true);
+    attemptReconnect();
+  }
+}
+function flushPendingActions(){
+  if (!pendingActionQueue.length || !hostConn || !hostConn.open) return;
+  const queued = pendingActionQueue;
+  pendingActionQueue = [];
+  queued.forEach(({action, payload}) => hostConn.send({ type:'action', action, payload, clientId: myClientId }));
+  setStatusLine('Reconnected — resent ' + queued.length + ' pending action(s).', false);
 }
 
 async function handleAction(clientId, action, payload, conn){
@@ -1408,7 +1493,7 @@ function setLanguageMode(mode){
 function renderPlayHistory(s){
   const el = document.getElementById('play-history');
   if (!el) return;
-  const plays = (s.log || []).filter(e => e.indexOf(' played "') !== -1 || e.indexOf(' passed.') !== -1);
+  const plays = (s.log || []).filter(e => e.indexOf(' played "') !== -1 || e.indexOf(' passed.') !== -1 || e.indexOf(' exchanged ') !== -1);
   const recent = plays.slice(-10).reverse(); // most recent first
   if (!recent.length){ el.classList.add('hidden'); return; }
   el.classList.remove('hidden');
@@ -1793,6 +1878,9 @@ window.addEventListener('orientationchange', updateRotateOverlay);
 try {
   if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(()=>{});
 } catch(e){}
+
+const versionEl = document.getElementById('app-version');
+if (versionEl) versionEl.textContent = APP_VERSION;
 </script>
 </body>
 </html>
