@@ -1179,6 +1179,10 @@ async function tryPlayWord(player, placements){
 
   // dictionary check
   const formed = getFormedWords(state.board, staged);
+  if (formed.length === 0){
+    staged.forEach(s => { state.board[s.row][s.col] = null; });
+    return { valid:false, message: 'Must form a word of at least two letters.' };
+  }
   for (const w of formed){
     if (w.positions.length < 2) continue;
     const ws = wordString(state.board, w.positions);
@@ -1261,17 +1265,34 @@ function endGame(){
     state.players.forEach(p => { if (p.clientId !== pendingWordChallenge.clientId) sendToClient(p.clientId, { type:'wordChallengeClosed' }); });
     pendingWordChallenge = null;
   }
+  const preDeductionScores = {}; // clientId -> score before this end-of-game adjustment, for tie-breaking
+  state.players.forEach(p => { preDeductionScores[p.clientId] = p.score; });
+
   const deductions = [];
+  let totalDeducted = 0;
   state.players.forEach(p => {
     const unplayedValue = p.rack.reduce((sum, t) => sum + (t.points || 0), 0);
     if (unplayedValue > 0){
       p.score -= unplayedValue;
+      totalDeducted += unplayedValue;
       deductions.push(p.name + ' -' + unplayedValue);
     }
   });
-  const winner = [...state.players].sort((a,b)=>b.score-a.score)[0];
+  // Rulebook: "if a player used all his or her letters, the sum of the other players'
+  // unplayed letters is added to that player's score" — only applies to a natural finish
+  // (someone emptied their rack), not a stalemate/forced end where nobody did.
+  const finisher = state.players.find(p => p.rack.length === 0);
+  let finisherBonusNote = '';
+  if (finisher && totalDeducted > 0){
+    finisher.score += totalDeducted;
+    finisherBonusNote = ' ' + finisher.name + ' gains +' + totalDeducted + ' from opponents\' unplayed tiles.';
+  }
+
+  const winner = [...state.players].sort((a,b) =>
+    b.score - a.score || (preDeductionScores[b.clientId] - preDeductionScores[a.clientId])
+  )[0];
   const deductionNote = deductions.length ? ' Unplayed tiles deducted: ' + deductions.join(', ') + '.' : '';
-  state.log.push('Game over. ' + winner.name + ' wins with ' + winner.score + '!' + deductionNote);
+  state.log.push('Game over. ' + winner.name + ' wins with ' + winner.score + '!' + deductionNote + finisherBonusNote);
   state.matchHistory = state.matchHistory || [];
   state.matchHistory.push({
     winner: winner.name,
