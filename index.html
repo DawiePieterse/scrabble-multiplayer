@@ -162,6 +162,7 @@ body{ background:var(--apple-gray-bg); color:var(--apple-ink); -webkit-font-smoo
     <p id="sound-diag" class="hidden mt-2 text-[11px] text-[#8E8E93] break-words text-left"></p>
 
     <p class="mt-6 text-xs text-[#8E8E93]">First connection needs internet briefly (to find each other). Gameplay then runs over your wifi.</p>
+    <p class="mt-2 text-[11px] text-[#C7C7CC]">Scrabble LAN <span id="app-version-home"></span></p>
   </div>
 </div>
 
@@ -178,6 +179,7 @@ body{ background:var(--apple-gray-bg); color:var(--apple-ink); -webkit-font-smoo
       <div id="lobby-tile-distribution" class="flex flex-wrap gap-1 mb-4 max-h-32 overflow-y-auto"></div>
       <h3 class="font-semibold text-lg mb-3 text-left">Players</h3>
       <div id="lobby-players" class="space-y-2 text-left mb-4"></div>
+      <p id="lobby-version-mismatch" class="hidden text-xs text-[#C4281B] bg-[#FFE1DE] rounded-xl px-3 py-2 mb-4">⚠️ Not everyone is on the same version — make sure everyone has the latest copy of the file.</p>
       <button id="btn-add-bot" onclick="hostAddBot()" class="hidden w-full py-3 mb-3 bg-[#F5F5F7] border border-[#D2D2D7] text-[#1D1D1F] rounded-2xl font-semibold text-sm">
         <i class="fa-solid fa-robot mr-2"></i>Add Computer Player
       </button>
@@ -290,12 +292,22 @@ body{ background:var(--apple-gray-bg); color:var(--apple-ink); -webkit-font-smoo
 
     <div id="final-scores" class="flex flex-wrap gap-1.5 justify-center mb-4 flex-shrink-0"></div>
 
-    <div class="text-left flex-1 min-h-0 flex flex-col">
-      <div class="text-[10px] uppercase tracking-wide text-[#8E8E93] mb-1 flex-shrink-0">Full recap</div>
-      <div id="game-recap" class="flex-1 min-h-0 overflow-y-auto bg-[#F5F5F7] rounded-2xl p-3 text-sm space-y-1"></div>
+    <div class="flex-1 min-h-0 flex flex-col gap-3">
+      <div class="text-left flex-shrink-0">
+        <div class="text-[10px] uppercase tracking-wide text-[#8E8E93] mb-1">Player stats</div>
+        <div id="player-stats" class="max-h-36 overflow-y-auto bg-[#F5F5F7] rounded-2xl p-3 text-xs space-y-2"></div>
+      </div>
+      <div class="text-left flex-1 min-h-0 flex flex-col">
+        <div class="text-[10px] uppercase tracking-wide text-[#8E8E93] mb-1 flex-shrink-0">Full recap</div>
+        <div id="game-recap" class="flex-1 min-h-0 overflow-y-auto bg-[#F5F5F7] rounded-2xl p-3 text-sm space-y-1"></div>
+      </div>
     </div>
 
-    <button onclick="closeWinnerModal()" class="w-full py-3 mt-4 bg-[#1D1D1F] text-white rounded-2xl font-semibold flex-shrink-0">Back to Lobby</button>
+    <div id="winner-host-controls" class="hidden flex-shrink-0 space-y-2 mt-4">
+      <button onclick="hostStartNewRound()" class="w-full py-3 bg-[#0071E3] text-white rounded-2xl font-semibold"><i class="fa-solid fa-arrow-rotate-right mr-2"></i>Start New Game</button>
+      <button onclick="hostConfirmEndTournament()" class="w-full py-3 bg-[#F5F5F7] text-[#C4281B] border border-[#D2D2D7] rounded-2xl font-semibold">End Tournament</button>
+    </div>
+    <p id="winner-waiting-message" class="hidden flex-shrink-0 text-sm text-[#8E8E93] mt-2">Waiting for the host to start a new game or end the tournament...</p>
   </div>
 </div>
 
@@ -303,7 +315,18 @@ body{ background:var(--apple-gray-bg); color:var(--apple-ink); -webkit-font-smoo
 /* =========================================================================
    GAME CONSTANTS
    ========================================================================= */
-const APP_VERSION = 'v1.5.0';
+const APP_VERSION = 'v1.6.0';
+function compareVersions(a, b){
+  if (!a || !b) return 0;
+  const pa = String(a).replace(/^v/i,'').split('.').map(n => parseInt(n,10)||0);
+  const pb = String(b).replace(/^v/i,'').split('.').map(n => parseInt(n,10)||0);
+  for (let i=0;i<Math.max(pa.length,pb.length);i++){
+    const x = pa[i]||0, y = pb[i]||0;
+    if (x < y) return -1;
+    if (x > y) return 1;
+  }
+  return 0;
+}
 const BOARD_SIZE = 15, CENTER = 7, MAX_PLAYERS = 6;
 const LETTER_POINTS_EN = {A:1,B:3,C:3,D:2,E:1,F:4,G:2,H:4,I:1,J:8,K:5,L:1,M:3,N:1,O:1,P:3,Q:10,R:1,S:1,T:1,U:1,V:4,W:4,X:8,Y:4,Z:10,'':0};
 const LETTER_DISTRIBUTION_EN = {A:9,B:2,C:2,D:4,E:12,F:2,G:3,H:2,I:9,J:1,K:1,L:4,M:2,N:6,O:8,P:2,Q:1,R:6,S:4,T:6,U:4,V:2,W:2,X:1,Y:2,Z:1,'':2};
@@ -533,10 +556,11 @@ function startHostFlow(){
       roomCode, started:false,
       board: Array.from({length:BOARD_SIZE},()=>Array(BOARD_SIZE).fill(null)),
       bag: [], currentPlayerIndex: 0, consecutivePasses: 0, languageMode: 'english', lastPlay: null, matchHistory: [],
-      players: [{ clientId: myClientId, name, rack: [], score: 0, connected: true }],
+      players: [{ clientId: myClientId, name, rack: [], score: 0, connected: true, version: APP_VERSION }],
       log: []
     };
     localStorage.setItem('scrabble-room', roomCode);
+    startHostHeartbeat();
     showLobby();
   });
   peer.on('connection', conn => registerIncomingConnection(conn));
@@ -566,13 +590,14 @@ function connectToHost(code, name, onError, onTimeout){
     hostConn = peer.connect('scrabblelan-' + code, { reliable: true });
     hostConn.on('open', () => {
       clearTimeout(timeout);
-      hostConn.send({ type:'join', name, clientId: myClientId });
+      hostConn.send({ type:'join', name, clientId: myClientId, version: APP_VERSION });
       localStorage.setItem('scrabble-room', code);
       updateConnectionBadge(true);
       isReconnecting = false;
       reconnectBackoffMs = 2000; // healthy connection — reset backoff for next time
       lastHostMessageAt = Date.now();
       flushPendingActions();
+      startStaleHostCheck();
     });
     hostConn.on('data', handleClientReceive);
     hostConn.on('close', () => { updateConnectionBadge(false); setStatusLine('Connection lost — reconnecting automatically...', true); attemptReconnect(); });
@@ -685,11 +710,11 @@ function handleHostReceive(conn, msg){
     lastPongAt[msg.clientId] = Date.now();
     let p = state.players.find(pl => pl.clientId === msg.clientId);
     if (p){
-      p.connected = true; p.name = msg.name || p.name; // reconnect
+      p.connected = true; p.name = msg.name || p.name; p.version = msg.version || p.version; // reconnect
     } else {
       if (state.started){ conn.send({type:'error', message:'Game already in progress.'}); return; }
       if (state.players.length >= MAX_PLAYERS){ conn.send({type:'error', message:'Room is full (6 players max).'}); return; }
-      state.players.push({ clientId: msg.clientId, name: msg.name, rack: [], score: 0, connected: true });
+      state.players.push({ clientId: msg.clientId, name: msg.name, rack: [], score: 0, connected: true, version: msg.version || 'unknown' });
     }
     conn.send({ type:'joined', clientId: msg.clientId });
     broadcastState();
@@ -705,20 +730,27 @@ function handleHostReceive(conn, msg){
 
 // Heartbeat: catches "zombie" connections that look open but have actually gone dead —
 // common on flaky wifi where WebRTC's own close event can take a long time to fire.
-setInterval(() => {
-  if (!isHost) return;
-  Object.entries(connections).forEach(([clientId, conn]) => { if (conn.open) try { conn.send({ type:'ping' }); } catch(e){} });
-  const now = Date.now();
-  state.players.forEach(p => {
-    if (p.clientId === myClientId || p.isBot) return;
-    const last = lastPongAt[p.clientId];
-    if (last && now - last > 20000 && p.connected !== false){
-      p.connected = false;
-      broadcastState();
-      renderLobbyIfShown();
-    }
-  });
-}, 6000);
+let heartbeatIntervalId = null;
+function startHostHeartbeat(){
+  stopHostHeartbeat(); // idempotent — avoid stacking duplicate intervals across host sessions
+  heartbeatIntervalId = setInterval(() => {
+    if (!isHost || !state) return;
+    Object.entries(connections).forEach(([clientId, conn]) => { if (conn.open) try { conn.send({ type:'ping' }); } catch(e){} });
+    const now = Date.now();
+    state.players.forEach(p => {
+      if (p.clientId === myClientId || p.isBot) return;
+      const last = lastPongAt[p.clientId];
+      if (last && now - last > 20000 && p.connected !== false){
+        p.connected = false;
+        broadcastState();
+        renderLobbyIfShown();
+      }
+    });
+  }, 6000);
+}
+function stopHostHeartbeat(){
+  if (heartbeatIntervalId){ clearInterval(heartbeatIntervalId); heartbeatIntervalId = null; }
+}
 
 let lastHostMessageAt = Date.now();
 function handleClientReceive(msg){
@@ -731,17 +763,26 @@ function handleClientReceive(msg){
   if (msg.type === 'statusMessage'){ setStatusLine(msg.message, false); return; }
   if (msg.type === 'wordChallenge'){ showWordChallengeModal(msg); return; }
   if (msg.type === 'wordChallengeClosed'){ closeWordChallengeModal(); return; }
+  if (msg.type === 'returnToLobby'){ document.getElementById('winner-modal').classList.add('hidden'); showScreen('lobby'); renderLobbyFromState(); return; }
+  if (msg.type === 'tournamentEnded'){ teardownToHome('The host ended the tournament. Thanks for playing!'); return; }
 }
 // If nothing at all has arrived from the host in a while (including heartbeats), the
 // connection is dead even if PeerJS hasn't fired 'close' yet — force a reconnect attempt.
-setInterval(() => {
-  if (isHost || !hostConn) return;
-  if (hostConn.open && Date.now() - lastHostMessageAt > 20000){
-    try { hostConn.close(); } catch(e){}
-    updateConnectionBadge(false);
-    attemptReconnect();
-  }
-}, 7000);
+let staleCheckIntervalId = null;
+function startStaleHostCheck(){
+  stopStaleHostCheck(); // idempotent — avoid stacking duplicate intervals across join sessions
+  staleCheckIntervalId = setInterval(() => {
+    if (isHost || !hostConn) return;
+    if (hostConn.open && Date.now() - lastHostMessageAt > 20000){
+      try { hostConn.close(); } catch(e){}
+      updateConnectionBadge(false);
+      attemptReconnect();
+    }
+  }, 7000);
+}
+function stopStaleHostCheck(){
+  if (staleCheckIntervalId){ clearInterval(staleCheckIntervalId); staleCheckIntervalId = null; }
+}
 
 function broadcastState(){
   Object.values(connections).forEach(conn => {
@@ -754,12 +795,12 @@ function broadcastState(){
 function stateForRecipient(recipientClientId){
   return {
     roomCode: state.roomCode, started: state.started, languageMode: state.languageMode,
-    board: state.board, currentPlayerIndex: state.currentPlayerIndex, lastPlay: state.lastPlay, matchHistory: state.matchHistory,
+    board: state.board, currentPlayerIndex: state.currentPlayerIndex, lastPlay: state.lastPlay, matchHistory: state.matchHistory, playerStats: state.playerStats,
     consecutivePasses: state.consecutivePasses, bagCount: state.bag.length, initialBagSize: state.initialBagSize,
     log: state.log.slice(-300),
     players: state.players.map(p => p.clientId === recipientClientId
       ? { ...p }
-      : { clientId:p.clientId, name:p.name, score:p.score, connected:p.connected, rackCount:p.rack.length })
+      : { clientId:p.clientId, name:p.name, score:p.score, connected:p.connected, rackCount:p.rack.length, isBot:p.isBot, version:p.version })
   };
 }
 
@@ -855,7 +896,7 @@ async function handleAction(clientId, action, payload, conn){
     if (state.started) return;
     if (state.players.some(p => p.isBot)) return; // only one simulated player
     if (state.players.length >= MAX_PLAYERS) return;
-    state.players.push({ clientId: 'bot_' + Math.random().toString(36).slice(2,8), name:'Computer', rack:[], score:0, connected:true, isBot:true });
+    state.players.push({ clientId: 'bot_' + Math.random().toString(36).slice(2,8), name:'Computer', rack:[], score:0, connected:true, isBot:true, version: APP_VERSION });
     broadcastState();
     renderLobbyIfShown();
     return;
@@ -1000,7 +1041,12 @@ function beginGame(){
   state.board = Array.from({length:BOARD_SIZE},()=>Array(BOARD_SIZE).fill(null));
   state.bag = createBag(state.languageMode);
   state.initialBagSize = state.bag.length;
-  state.players.forEach(p => { p.rack = state.bag.splice(0, 7); p.score = 0; });
+  state.players.forEach(p => {
+    p.rack = state.bag.splice(0, 7);
+    p.score = 0;
+  });
+  state.playerStats = {}; // clientId -> { letters:{L:count}, dl,tl,dw,tw, bingos }
+  state.players.forEach(p => { state.playerStats[p.clientId] = { letters:{}, wordLengths:{}, dl:0, tl:0, dw:0, tw:0, bingos:0 }; });
   state.currentPlayerIndex = Math.floor(Math.random() * state.players.length);
   state.consecutivePasses = 0;
   state.lastPlay = null;
@@ -1151,6 +1197,22 @@ async function tryPlayWord(player, placements){
   const playedWord = mainWord ? wordString(state.board, mainWord.positions) : '';
   state.log.push(player.name + ' played "' + playedWord + '" for ' + score + ' pts');
   state.lastPlay = { playerName: player.name, word: playedWord, score, positions: mainWord ? mainWord.positions.map(p=>({row:p.row,col:p.col})) : [] };
+
+  // stats: letters played, premium squares hit, bingos — shown in the end-game recap
+  if (!state.playerStats) state.playerStats = {};
+  if (!state.playerStats[player.clientId]) state.playerStats[player.clientId] = { letters:{}, wordLengths:{}, dl:0, tl:0, dw:0, tw:0, bingos:0 };
+  const stats = state.playerStats[player.clientId];
+  staged.forEach(s => {
+    const letter = (s.tile.playedAs || s.tile.letter || '').toUpperCase();
+    if (letter) stats.letters[letter] = (stats.letters[letter] || 0) + 1;
+    const prem = getPremium(s.row, s.col);
+    if (prem === 'DL') stats.dl++;
+    else if (prem === 'TL') stats.tl++;
+    else if (prem === 'DW' || prem === 'CENTER') stats.dw++;
+    else if (prem === 'TW') stats.tw++;
+  });
+  if (staged.length === 7) stats.bingos++;
+  if (playedWord) stats.wordLengths[playedWord.length] = (stats.wordLengths[playedWord.length] || 0) + 1;
 
   const need = 7 - player.rack.length;
   if (need>0 && state.bag.length>0) player.rack.push(...state.bag.splice(0, Math.min(need, state.bag.length)));
@@ -1449,13 +1511,23 @@ function renderLobbyFromState(){
   renderTileDistribution(src.languageMode);
 
   const wrap = document.getElementById('lobby-players');
-  wrap.innerHTML = src.players.map(p => `
+  wrap.innerHTML = src.players.map(p => {
+    const versionBadge = (p.version && p.version !== APP_VERSION)
+      ? `<span class="text-[10px] font-semibold ${compareVersions(p.version, APP_VERSION) < 0 ? 'text-[#FF9F0A]' : 'text-[#0071E3]'}" title="This device: ${escapeHtml(APP_VERSION)}">⚠️ ${escapeHtml(p.version)}</span>`
+      : '';
+    return `
     <div class="flex items-center justify-between bg-[#F5F5F7] rounded-xl px-3 py-2">
       <span class="font-semibold">${p.isBot ? '<i class="fa-solid fa-robot mr-1 text-[#8E8E93]"></i>' : ''}${escapeHtml(p.name)}</span>
       <span class="flex items-center gap-x-2">
+        ${versionBadge}
         ${p.isBot && isHost ? '<button onclick="hostRemoveBot()" class="text-[10px] text-[#FF3B30] font-semibold">Remove</button>' : `<span class="text-xs ${p.connected!==false ? 'text-[#34C759]' : 'text-[#FF3B30]'}">${p.connected!==false ? '● online' : '○ offline'}</span>`}
       </span>
-    </div>`).join('');
+    </div>`;
+  }).join('');
+
+  const anyMismatch = src.players.some(p => p.version && p.version !== APP_VERSION);
+  const mismatchNoteEl = document.getElementById('lobby-version-mismatch');
+  if (mismatchNoteEl) mismatchNoteEl.classList.toggle('hidden', !anyMismatch);
 
   const addBotBtn = document.getElementById('btn-add-bot');
   if (isHost && !src.players.some(p => p.isBot) && src.players.length < MAX_PLAYERS){
@@ -1477,10 +1549,41 @@ function renderLobbyFromState(){
 function hostStartGame(){ Sound.click(); submitAction('startGame'); }
 function hostAddBot(){ Sound.click(); submitAction('addBot'); }
 function hostRemoveBot(){ Sound.click(); submitAction('removeBot'); }
-function closeWinnerModal(){
+function hostStartNewRound(){
+  if (!isHost) return;
+  Sound.click();
+  Object.values(connections).forEach(c => { if (c.open) c.send({ type:'returnToLobby' }); });
   document.getElementById('winner-modal').classList.add('hidden');
   showScreen('lobby');
   renderLobbyFromState();
+}
+
+function hostConfirmEndTournament(){
+  if (!isHost) return;
+  if (!confirm('End the tournament for everyone? This closes the room and returns all players to the start screen.')) return;
+  Sound.click();
+  Object.values(connections).forEach(c => { if (c.open) c.send({ type:'tournamentEnded' }); });
+  // brief delay so the outgoing "tournament ended" messages actually reach everyone before we tear the room down
+  setTimeout(() => {
+    try { if (peer) peer.destroy(); } catch(e){}
+    stopHostHeartbeat();
+    connections = {}; state = null; isHost = false; roomCode = null; myName = null;
+    document.getElementById('winner-modal').classList.add('hidden');
+    showScreen('home');
+    setHomeStatus('Tournament ended.');
+  }, 250);
+}
+
+// Non-host clients land here when the host makes a choice at game end — never something
+// a player triggers themselves, so nobody can accidentally "leave" mid-tournament.
+function teardownToHome(message){
+  try { if (hostConn) hostConn.close(); } catch(e){}
+  try { if (peer) peer.destroy(); } catch(e){}
+  stopStaleHostCheck();
+  roomCode = null; myName = null; hostConn = null; isReconnecting = false;
+  document.getElementById('winner-modal').classList.add('hidden');
+  showScreen('home');
+  setHomeStatus(message || '');
 }
 
 function hostEndGame(){
@@ -1614,11 +1717,40 @@ function renderGame(){
         '<div class="sub">' + p.score + ' pts</div></div>';
     }).join('');
 
+    document.getElementById('player-stats').innerHTML = ranked.map(p => {
+      const idx = s.players.indexOf(p);
+      const stats = (s.playerStats && s.playerStats[p.clientId]) || { letters:{}, wordLengths:{}, dl:0, tl:0, dw:0, tw:0, bingos:0 };
+      const letterEntries = Object.entries(stats.letters).sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0]));
+      const lettersHtml = letterEntries.length
+        ? letterEntries.map(([l,c]) => escapeHtml(l) + '×' + c).join('  ')
+        : 'No tiles played';
+      const bonusParts = [];
+      if (stats.dl) bonusParts.push(stats.dl + ' Double Letter');
+      if (stats.tl) bonusParts.push(stats.tl + ' Triple Letter');
+      if (stats.dw) bonusParts.push(stats.dw + ' Double Word');
+      if (stats.tw) bonusParts.push(stats.tw + ' Triple Word');
+      if (stats.bingos) bonusParts.push(stats.bingos + ' Bingo (+50)');
+      const bonusHtml = bonusParts.length ? bonusParts.join(' · ') : 'No bonus squares hit';
+      const lengthEntries = Object.entries(stats.wordLengths || {}).sort((a,b) => b[0]-a[0]);
+      const lengthsHtml = lengthEntries.length
+        ? lengthEntries.map(([len,c]) => len + '-letter: ' + c).join('  ')
+        : 'No words played';
+      return '<div>' +
+        '<div class="font-semibold flex items-center gap-x-1.5"><span class="inline-block w-2.5 h-2.5 rounded-full pc-' + (idx % 6) + '"></span>' + escapeHtml(p.name) + '</div>' +
+        '<div class="text-[#6E6E73] pl-4">Letters: ' + lettersHtml + '</div>' +
+        '<div class="text-[#6E6E73] pl-4">Word lengths: ' + lengthsHtml + '</div>' +
+        '<div class="text-[#6E6E73] pl-4">Bonuses: ' + bonusHtml + '</div>' +
+      '</div>';
+    }).join('');
+
     const recapEl = document.getElementById('game-recap');
     const entries = s.log || [];
     recapEl.innerHTML = entries.length
       ? entries.map(e => '<div>' + escapeHtml(e) + '</div>').join('')
       : '<div class="text-[#8E8E93]">No plays recorded.</div>';
+
+    document.getElementById('winner-host-controls').classList.toggle('hidden', !isHost);
+    document.getElementById('winner-waiting-message').classList.toggle('hidden', isHost);
 
     document.getElementById('winner-modal').classList.remove('hidden');
     // Jump to the most recent event so the ending (win/stalemate/deductions) is visible first.
@@ -1906,6 +2038,8 @@ try {
 
 const versionEl = document.getElementById('app-version');
 if (versionEl) versionEl.textContent = APP_VERSION;
+const versionElHome = document.getElementById('app-version-home');
+if (versionElHome) versionElHome.textContent = APP_VERSION;
 </script>
 </body>
 </html>
